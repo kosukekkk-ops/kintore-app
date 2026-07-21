@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Node (このプロジェクトは依存なしだが念のため)
+node_modules/
+npm-debug.log*
+
+# 一時ファイル
+*.tmp
+_check-*.png

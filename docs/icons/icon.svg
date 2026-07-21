@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#20304f"/>
+      <stop offset="1" stop-color="#0e131f"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0.05" y1="0" x2="0.95" y2="1">
+      <stop offset="0" stop-color="#5aa6ff"/>
+      <stop offset="1" stop-color="#7c5cff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#4f9dff" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#4f9dff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景（角丸はマスク前提でも念のため含める） -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+
+  <!-- ダンベル：右肩上がり18度で「成長」を一滴だけ足す -->
+  <g transform="rotate(-18 256 256)">
+    <rect x="86"  y="164" width="98"  height="184" rx="42" fill="url(#metal)"/>
+    <rect x="328" y="164" width="98"  height="184" rx="42" fill="url(#metal)"/>
+    <rect x="168" y="224" width="176" height="64"  rx="32" fill="url(#metal)"/>
+  </g>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "name": "筋トレ記録 — トレーニング・食事・睡眠",
+  "short_name": "筋トレ記録",
+  "description": "筋トレのセット記録と成長の可視化に加え、食事・睡眠・体重も一括で記録できるトレーニング記録アプリ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1420",
+  "theme_color": "#0f1420",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
