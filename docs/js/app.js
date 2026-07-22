@@ -30,12 +30,14 @@
   const muscleTag = (key) => `<span class="mtag ${Data.muscleMap[key] ? Data.muscleMap[key].cls : ''}">${esc(Data.muscleName(key))}</span>`;
 
   /* ============ ボトムシート ============ */
-  function showSheet(inner) {
-    closeSheet();
+  function showSheet(inner, opts) {
+    opts = opts || {};
+    if (!opts.stack) closeSheet();
     const ov = document.createElement('div');
     ov.className = 'sheet-overlay';
     ov.innerHTML = `<div class="sheet"><div class="grab"></div>${inner}</div>`;
-    ov.addEventListener('click', (e) => { if (e.target === ov) closeSheet(); });
+    // 背景タップはこのオーバーレイだけ閉じる(スタック時に下のシートを残す)
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
     document.body.appendChild(ov);
     return ov;
   }
@@ -363,6 +365,90 @@
     saveCur();
   }
 
+  /* ============ 種目の情報(筋肉マップ＋外部検索) ============ */
+  // 種目が鍛える部位を筋肉マップの領域キーに変換
+  function exerciseRegions(ex) {
+    const r = new Set(); const add = (...k) => k.forEach(x => r.add(x));
+    switch (ex.muscle) {
+      case 'chest': add('chest'); break;
+      case 'back': add('lats', 'traps'); break;
+      case 'shoulder': add('delts', 'rear_delts'); break;
+      case 'arm': ex.sub === '上腕三頭筋' ? add('triceps') : add('biceps'); break;
+      case 'legs':
+        if (ex.sub === 'ハムストリングス') add('hamstrings');
+        else if (ex.sub === '臀部') add('glutes');
+        else if (ex.sub === '内転・外転') add('inner_thigh');
+        else if (ex.sub === 'ふくらはぎ') add('calves');
+        else add('quads');
+        break;
+      case 'abs': /バックエクステンション|ローマンチェア|GHD/.test(ex.name) ? add('lower_back', 'glutes') : add('abs'); break;
+      case 'cardio': add('quads', 'calves'); break;
+    }
+    return r;
+  }
+  const HL = 'fill="var(--accent)" opacity="0.9"';
+  function silhouette(ox) {
+    const a = 'fill="var(--bg-elev)" stroke="var(--border)"';
+    return `<circle cx="${ox}" cy="26" r="13" ${a}/>
+      <rect x="${ox - 22}" y="42" width="44" height="92" rx="16" ${a}/>
+      <rect x="${ox - 37}" y="46" width="13" height="78" rx="6" ${a}/>
+      <rect x="${ox + 24}" y="46" width="13" height="78" rx="6" ${a}/>
+      <rect x="${ox - 20}" y="130" width="18" height="98" rx="9" ${a}/>
+      <rect x="${ox + 2}" y="130" width="18" height="98" rx="9" ${a}/>`;
+  }
+  function frontShape(k, ox) {
+    switch (k) {
+      case 'chest': return `<rect x="${ox - 18}" y="54" width="15" height="18" rx="6" ${HL}/><rect x="${ox + 3}" y="54" width="15" height="18" rx="6" ${HL}/>`;
+      case 'delts': return `<circle cx="${ox - 24}" cy="52" r="8" ${HL}/><circle cx="${ox + 24}" cy="52" r="8" ${HL}/>`;
+      case 'biceps': return `<ellipse cx="${ox - 30}" cy="74" rx="5" ry="12" ${HL}/><ellipse cx="${ox + 30}" cy="74" rx="5" ry="12" ${HL}/>`;
+      case 'abs': return `<rect x="${ox - 11}" y="80" width="22" height="34" rx="5" ${HL}/>`;
+      case 'obliques': return `<rect x="${ox - 20}" y="82" width="7" height="28" rx="3" ${HL}/><rect x="${ox + 13}" y="82" width="7" height="28" rx="3" ${HL}/>`;
+      case 'quads': return `<ellipse cx="${ox - 11}" cy="156" rx="8" ry="26" ${HL}/><ellipse cx="${ox + 11}" cy="156" rx="8" ry="26" ${HL}/>`;
+      case 'inner_thigh': return `<ellipse cx="${ox - 5}" cy="150" rx="4" ry="20" ${HL}/><ellipse cx="${ox + 5}" cy="150" rx="4" ry="20" ${HL}/>`;
+    }
+    return '';
+  }
+  function backShape(k, ox) {
+    switch (k) {
+      case 'traps': return `<rect x="${ox - 14}" y="46" width="28" height="18" rx="6" ${HL}/>`;
+      case 'rear_delts': return `<circle cx="${ox - 24}" cy="52" r="8" ${HL}/><circle cx="${ox + 24}" cy="52" r="8" ${HL}/>`;
+      case 'lats': return `<path d="M${ox - 20} 66 L${ox - 6} 72 L${ox - 10} 102 L${ox - 20} 94 Z" ${HL}/><path d="M${ox + 20} 66 L${ox + 6} 72 L${ox + 10} 102 L${ox + 20} 94 Z" ${HL}/>`;
+      case 'triceps': return `<ellipse cx="${ox - 30}" cy="74" rx="5" ry="12" ${HL}/><ellipse cx="${ox + 30}" cy="74" rx="5" ry="12" ${HL}/>`;
+      case 'lower_back': return `<rect x="${ox - 12}" y="104" width="24" height="20" rx="5" ${HL}/>`;
+      case 'glutes': return `<ellipse cx="${ox - 9}" cy="134" rx="10" ry="12" ${HL}/><ellipse cx="${ox + 9}" cy="134" rx="10" ry="12" ${HL}/>`;
+      case 'hamstrings': return `<ellipse cx="${ox - 11}" cy="166" rx="8" ry="24" ${HL}/><ellipse cx="${ox + 11}" cy="166" rx="8" ry="24" ${HL}/>`;
+      case 'calves': return `<ellipse cx="${ox - 11}" cy="206" rx="7" ry="18" ${HL}/><ellipse cx="${ox + 11}" cy="206" rx="7" ry="18" ${HL}/>`;
+    }
+    return '';
+  }
+  function bodyMapSvg(regions) {
+    const F = 68, B = 192;
+    const frontKeys = ['delts', 'chest', 'biceps', 'obliques', 'abs', 'inner_thigh', 'quads'];
+    const backKeys = ['traps', 'rear_delts', 'lats', 'triceps', 'lower_back', 'glutes', 'hamstrings', 'calves'];
+    let s = `<svg viewBox="0 0 260 270" xmlns="http://www.w3.org/2000/svg">`;
+    s += silhouette(F) + silhouette(B);
+    frontKeys.forEach(k => { if (regions.has(k)) s += frontShape(k, F); });
+    backKeys.forEach(k => { if (regions.has(k)) s += backShape(k, B); });
+    s += `<text x="${F}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('front')}</text>`;
+    s += `<text x="${B}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('back')}</text>`;
+    s += `</svg>`;
+    return s;
+  }
+  function openExerciseInfo(exId) {
+    const ex = Store.exerciseById(exId); if (!ex) return;
+    const regions = exerciseRegions(ex);
+    const musc = Data.muscleName(ex.muscle) + (ex.sub ? ' / ' + ex.sub : '');
+    const qImg = encodeURIComponent(ex.name + ' 筋トレ マシン');
+    const qVid = encodeURIComponent(ex.name + ' やり方');
+    showSheet(`<h2>${esc(exName(ex))}</h2>
+      <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
+      <div class="bodymap">${bodyMapSvg(regions)}</div>
+      <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
+      <a class="linkbtn mb" href="https://www.google.com/search?tbm=isch&q=${qImg}" target="_blank" rel="noopener noreferrer">${t('see_images')}</a>
+      <a class="linkbtn" href="https://www.youtube.com/results?search_query=${qVid}" target="_blank" rel="noopener noreferrer">${t('see_video')}</a>
+      <p class="muted small mt">${t('info_ext_note')}</p>`, { stack: true });
+  }
+
   /* ============ 種目ピッカー(シート) ============ */
   function openPicker(onPick) {
     picker.q = ''; picker.muscle = 'all'; picker.onPick = onPick;
@@ -390,7 +476,7 @@
   }
   function pickRow(e, showMuscle) {
     const tags = (showMuscle ? muscleTag(e.muscle) : '') + (e.equip ? `<span class="etag">${esc(e.equip)}</span>` : '');
-    return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}</div>`;
+    return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}<button class="pick-info" data-act="ex-info" data-id="${e.id}" aria-label="info">ⓘ</button></div>`;
   }
   // 部位内をサブ部位の見出しでグループ化(サブ無しは先頭にそのまま)
   function renderWithSubs(items) {
@@ -806,6 +892,7 @@
 
     'pick-filter': (d) => { picker.muscle = d.key; refreshPicker(); },
     'do-pick': (d) => { if (picker.onPick) picker.onPick(d.id); },
+    'ex-info': (d) => openExerciseInfo(d.id),
     'new-exercise': () => openNewExercise(),
     'newex-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); newExMuscle = d.key; },
     'save-newex': () => {
@@ -921,6 +1008,7 @@
     const we = cur.exercises[ei];
     const ex = Store.exerciseById(we.exerciseId) || { name: '' };
     showSheet(`<h2>${esc(exName(ex))}</h2>
+      <button class="btn secondary mb" data-act="ex-info" data-id="${we.exerciseId}">${t('about_ex')}</button>
       <label class="field"><span class="lab">${t('ex_note')}</span><textarea id="exnote">${esc(we.note || '')}</textarea></label>
       <button class="btn mb" data-act="exnote-save">${t('save_note')}</button>
       <div class="row">

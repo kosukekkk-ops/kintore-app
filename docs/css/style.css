@@ -264,6 +264,18 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
   font-size: 10px; padding: 2px 7px; border-radius: 999px; flex: none;
   background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border);
 }
+.pick-info { background: none; border: none; color: var(--text-dim); font-size: 17px; cursor: pointer; flex: none; padding: 2px 2px 2px 6px; }
+
+/* 種目情報: 筋肉マップ */
+.bodymap { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
+.bodymap svg { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; }
+/* 外部リンクをボタン風に */
+a.linkbtn {
+  display: block; box-sizing: border-box; text-decoration: none; text-align: center;
+  font-family: inherit; font-size: 15px; font-weight: 600; border-radius: 12px; padding: 13px 18px;
+  background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+}
+a.linkbtn:active { transform: scale(.98); }
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 80px);
   background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;

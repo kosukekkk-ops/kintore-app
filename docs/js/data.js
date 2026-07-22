@@ -186,6 +186,8 @@ const Data = (() => {
       no_exercise_toast: '種目がありません', saved_workout: 'ワークアウトを保存しました 💪', discard_confirm: 'このワークアウトを破棄しますか？',
       // picker
       pick_title: '種目を選ぶ', search_ph: '🔍 種目名・器具で検索', all: 'すべて', no_match: '該当する種目がありません', add_custom: '＋ カスタム種目を追加', recent_ex: '最近使った種目',
+      about_ex: 'ⓘ この種目について', worked_muscles: '鍛える筋肉', front: '正面', back: '背面',
+      see_images: '🔍 画像で見る（Google）', see_video: '▶ 動画で見る（YouTube）', info_ext_note: '画像・動画は外部サイト（Google／YouTube）をブラウザで開きます。',
       custom_title: 'カスタム種目を追加', ex_name: '種目名', ex_name_ph: '例: ケーブルクロスオーバー', part: '部位', add_do: '追加する',
       need_name: '種目名を入力してください', ex_added: '種目を追加しました',
       // ex menu
@@ -239,6 +241,8 @@ const Data = (() => {
       col_set: '#', col_reps: 'reps', col_done: '✓', col_min: 'min', col_km: 'km', add_set: '＋ Set', add_warm: '＋ Warm-up',
       no_exercise_toast: 'No exercises', saved_workout: 'Workout saved 💪', discard_confirm: 'Discard this workout?',
       pick_title: 'Choose exercise', search_ph: '🔍 Search name or gear', all: 'All', no_match: 'No matching exercise', add_custom: '＋ Add custom exercise', recent_ex: 'Recently used',
+      about_ex: 'ⓘ About this exercise', worked_muscles: 'Muscles worked', front: 'Front', back: 'Back',
+      see_images: '🔍 See images (Google)', see_video: '▶ Watch video (YouTube)', info_ext_note: 'Images/videos open Google/YouTube in your browser.',
       custom_title: 'Add custom exercise', ex_name: 'Exercise name', ex_name_ph: 'e.g. Cable Crossover', part: 'Muscle group', add_do: 'Add',
       need_name: 'Please enter a name', ex_added: 'Exercise added',
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
