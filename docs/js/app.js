@@ -447,6 +447,8 @@
     if (/アダクター|アブダクター/.test(n)) return 'adduction';
     if (/スクワット|ハック|スミス|ランジ/.test(n)) return 'squat';
     // 胸
+    if (/インクライン/.test(n)) return 'incline';
+    if (/デクライン/.test(n)) return 'decline';
     if (/ベンチプレス|チェストプレス/.test(n)) return 'bench';
     if (/フライ/.test(n) && ex.muscle === 'chest') return 'fly';
     if (/プルオーバー/.test(n)) return 'pullover';
@@ -493,6 +495,18 @@
   function poseInner(p) {
     switch (p) {
       case 'bench': return _floor() + _bench(60, 98, 80) + _hd(66, 94) + _ch('74,94 116,94') + _ch('116,94 132,112 132,133') + _ch('82,94 82,70') + _bar(58, 66, 106, 66);
+      // インクライン: 上半身を起こした斜めのベンチ(頭が高い側)
+      case 'incline': return _floor() +
+        `<line x1="60" y1="124" x2="104" y2="60" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
+        `<line x1="60" y1="124" x2="92" y2="130" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
+        `<line x1="70" y1="128" x2="70" y2="134" stroke="var(--border)" stroke-width="3"/>` +
+        _hd(108, 56) + _ch('100,64 74,114') + _ch('74,114 68,132') + _ch('74,114 90,130') + _ch('96,72 92,50') + _bar(70, 48, 116, 48);
+      // デクライン: 頭が低い側の斜めベンチ
+      case 'decline': return _floor() +
+        `<line x1="56" y1="118" x2="104" y2="70" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
+        `<line x1="96" y1="76" x2="122" y2="70" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
+        `<line x1="118" y1="72" x2="118" y2="134" stroke="var(--border)" stroke-width="3"/>` +
+        _hd(58, 108) + _ch('66,104 106,78') + _ch('106,78 122,86') + _ch('74,98 66,74') + _bar(44, 72, 90, 72);
       case 'fly': return _floor() + _seat(100, 108) + _hd(100, 40) + _ch('100,48 100,86') + _ch('100,54 74,64') + _ch('100,54 126,64') + _db(72, 64) + _db(128, 64);
       case 'pullover': return _floor() + _bench(60, 98, 80) + _hd(70, 94) + _ch('78,94 120,94') + _ch('120,94 134,112 134,133') + _ch('86,94 70,74') + _bar(58, 70, 82, 70);
       case 'pushup': return _floor() + _hd(48, 96) + _ch('56,96 120,110') + _ch('60,98 60,124') + _ch('112,108 120,124') + _ch('120,110 150,120');
