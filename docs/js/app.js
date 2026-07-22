@@ -70,6 +70,8 @@
   function render() {
     const fn = RENDER[state.tab];
     if (fn) $('#view-' + state.tab).innerHTML = fn();
+    const wv = $('#view-workout');
+    if (wv) wv.classList.toggle('home', state.tab === 'workout' && state.wo.screen === 'home');
     syncTimerBar();
   }
 
@@ -82,10 +84,18 @@
   function renderWorkoutHome() {
     const active = Store.getActiveSession();
     const templates = Store.getTemplates();
-    const recent = Store.getSessions().filter(s => s.done).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+    const done = Store.getSessions().filter(s => s.done);
+    const recent = done.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
-    let h = `<div class="head"><h1>🏋️ ${t('h_record')}</h1><div class="spacer"></div>
-      <button class="icon-btn" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button></div>`;
+    // 負荷量(総ボリューム)を期間で集計。トン表示。
+    const now = new Date();
+    const sinceKey = (days) => { const d = new Date(now); d.setDate(d.getDate() - days + 1); return Data.dateKey(d); };
+    const volSince = (key) => done.filter(s => s.date >= key).reduce((a, s) => a + Data.sessionVolumeKg(s), 0);
+    const vol7 = volSince(sinceKey(7)), vol28 = volSince(sinceKey(28)), volAll = done.reduce((a, s) => a + Data.sessionVolumeKg(s), 0);
+
+    let h = `<div class="hero">`;
+    h += `<div class="home-head"><button class="icon-btn" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button>
+      <div class="ttl">${t('app_title')}</div><div style="width:40px"></div></div>`;
 
     if (active) {
       h += `<div class="card tap" data-act="resume">
@@ -94,9 +104,29 @@
           <div class="lsub">${esc(active.name || Data.fmtDate(active.date))} ・ ${t('n_exercises', { n: active.exercises.length })}</div>
         </div><div style="font-size:22px">›</div></div></div>`;
     }
-    h += `<button class="btn" data-act="start-empty">${t('start_new')}</button>`;
 
-    h += `<div class="card mt"><h2>${t('start_from_tpl')}</h2>`;
+    // ホームのカレンダー
+    h += homeCalendar(done);
+
+    // 合計負荷量カード(車/バス/飛行機の例え)
+    h += `<div class="load-grid">
+      ${loadCard(t('load_7d'), vol7, '🚗', 1.5, 'accent')}
+      ${loadCard(t('load_28d'), vol28, '🚌', 14, '')}
+      ${loadCard(t('load_total'), volAll, '✈️', 200, '')}
+    </div>`;
+
+    // 週別バー
+    h += weeklyBars(done);
+    h += `</div>`; /* /hero */
+
+    // 大きなアクション
+    h += `<div class="big-actions">
+      <button class="act-btn primary" data-act="start-empty"><span class="ai">＋</span>${t('add_today')}</button>
+      <button class="act-btn sub" data-act="rm-calc"><span class="ai">🏋️</span>${t('rm_calc')}</button>
+    </div>`;
+
+    // テンプレート
+    h += `<div class="card"><h2>${t('start_from_tpl')}</h2>`;
     if (!templates.length) {
       h += `<p class="muted small">${t('no_tpl_hint')}</p>`;
     } else {
@@ -107,10 +137,120 @@
     }
     h += `</div>`;
 
+    // 最近のワークアウト
     h += `<div class="card"><h2>${t('recent')}</h2>`;
     h += recent.length ? recent.map(s => sessionRow(s)).join('') : `<p class="muted small">${t('no_records')}</p>`;
     h += `</div>`;
     return h;
+  }
+
+  // 負荷量カード: 総重量(kg)をトン表示し、乗り物換算を添える
+  function loadCard(label, kg, ico, unitTon, cls) {
+    const tons = kg / 1000;
+    const mult = unitTon ? (tons / unitTon) : 0;
+    return `<div class="load-card ${cls}">
+      <div class="lc-main"><div class="lc-label">${label}</div>
+        <div class="lc-val">${Data.fmtNum(tons)}<small>t</small></div></div>
+      <div class="lc-cmp"><span class="ico">${ico}</span>× ${mult.toFixed(mult >= 10 ? 0 : 1)}</div>
+    </div>`;
+  }
+
+  // ホーム用カレンダー(閲覧＋実施日タップで履歴へ)。月移動は履歴タブで。
+  function homeCalendar(done) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const byDate = {};
+    done.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+    let h = `<div class="card"><div class="cal-head" style="margin-bottom:8px">
+      <div class="m" style="text-align:left;flex:1">${Data.fmtMonthYear(y, m)}</div>
+      <button data-act="go-history" aria-label="history" style="width:auto;padding:0 12px;font-size:13px">${t('h_history')} ›</button>
+    </div><div class="cal-grid">`;
+    Data.dow().forEach(d => h += `<div class="dow">${d}</div>`);
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    for (let i = 0; i < first; i++) h += `<div class="cal-cell empty"></div>`;
+    const todayK = Data.todayKey();
+    for (let d = 1; d <= days; d++) {
+      const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const has = byDate[key];
+      const cls = has ? 'has' : (key === todayK ? 'today' : '');
+      const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
+      h += `<div class="cal-cell ${cls}" ${has ? `data-act="cal-day" data-date="${key}"` : ''}>${d}${marks}</div>`;
+    }
+    h += `</div></div>`;
+    return h;
+  }
+
+  // 週別の負荷量バー(今週〜5週前、日曜始まり)
+  function weeklyBars(done) {
+    const now = new Date();
+    const startOfWeek = new Date(now); startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // 直近の日曜
+    const buckets = [];
+    for (let w = 0; w < 6; w++) {
+      const s = new Date(startOfWeek); s.setDate(startOfWeek.getDate() - w * 7);
+      const e = new Date(s); e.setDate(s.getDate() + 6);
+      const sk = Data.dateKey(s), ek = Data.dateKey(e);
+      const vol = done.filter(x => x.date >= sk && x.date <= ek).reduce((a, x) => a + Data.sessionVolumeKg(x), 0);
+      buckets.push({ w, vol });
+    }
+    const max = Math.max(1, ...buckets.map(b => b.vol));
+    let rows = buckets.map(b => {
+      const lab = b.w === 0 ? t('wk_now') : t('wk_ago', { n: b.w });
+      const pct = (b.vol / max) * 100;
+      const val = b.vol ? Data.fmtNum(b.vol / 1000) + 't' : '—';
+      return `<div class="wk-row ${b.w === 0 ? 'now' : ''}"><span class="wk-lab">${lab}</span>
+        <span class="wk-track"><span class="wk-fill" style="width:${pct.toFixed(1)}%"></span></span>
+        <span class="wk-val">${val}</span></div>`;
+    }).join('');
+    return `<div class="card"><h2>${t('weekly_load')}</h2><div class="wk">${rows}</div></div>`;
+  }
+
+  // 1RM計算機(シート)
+  function openRmCalc() {
+    rmState = { weight: '', reps: '' };
+    showSheet(rmInner());
+  }
+  let rmState = { weight: '', reps: '' };
+  function rmInner() {
+    const w = Data.displayToKg(rmState.weight, unit());
+    const reps = parseInt(rmState.reps, 10) || 0;
+    let out = '';
+    if (w > 0 && reps > 0) {
+      const oneRm = Data.estimate1RM(w, reps);
+      const pcts = [100, 95, 90, 85, 80, 75, 70];
+      const rows = pcts.map(p => {
+        const wt = oneRm * p / 100;
+        const rep = p === 100 ? 1 : Math.round((30 * (100 / p - 1)) + 1); // Epley逆算の目安
+        return `<tr><td>${p}%</td><td>${disp(wt)}${uLab()}</td><td>~${rep} ${t('col_reps')}</td></tr>`;
+      }).join('');
+      out = `<div class="rm-out">
+        <div class="rm-1rm"><span class="n">${disp(oneRm)}</span><span class="u"> ${uLab()}</span></div>
+        <table class="rm-table"><tbody>${rows}</tbody></table></div>`;
+    }
+    return `<h2>${t('rm_title')}</h2>
+      <div class="row">
+        <label class="field" style="flex:1"><span class="lab">${t('rm_weight', { u: uLab() })}</span><input inputmode="decimal" data-in="rm-weight" value="${esc(rmState.weight)}" placeholder="60"></label>
+        <label class="field" style="flex:1"><span class="lab">${t('rm_reps')}</span><input inputmode="numeric" data-in="rm-reps" value="${esc(rmState.reps)}" placeholder="8"></label>
+      </div>
+      <div id="rm-result">${out}</div>
+      <p class="muted small mt">${t('rm_hint')}</p>`;
+  }
+  function refreshRm() {
+    const box = $('#rm-result'); if (!box) return;
+    const w = Data.displayToKg(rmState.weight, unit());
+    const reps = parseInt(rmState.reps, 10) || 0;
+    if (w > 0 && reps > 0) {
+      const oneRm = Data.estimate1RM(w, reps);
+      const pcts = [100, 95, 90, 85, 80, 75, 70];
+      const rows = pcts.map(p => {
+        const wt = oneRm * p / 100;
+        const rep = p === 100 ? 1 : Math.round((30 * (100 / p - 1)) + 1);
+        return `<tr><td>${p}%</td><td>${disp(wt)}${uLab()}</td><td>~${rep} ${t('col_reps')}</td></tr>`;
+      }).join('');
+      box.innerHTML = `<div class="rm-out"><div class="rm-1rm"><span class="n">${disp(oneRm)}</span><span class="u"> ${uLab()}</span></div>
+        <table class="rm-table"><tbody>${rows}</tbody></table></div>`;
+    } else box.innerHTML = '';
   }
 
   function sessionRow(s) {
@@ -581,6 +721,8 @@
   const ACTIONS = {
     'open-settings': () => { $$('.view').forEach(v => v.classList.remove('active')); $('#view-settings').classList.add('active'); state.tab = 'settings'; render(); },
     'settings-back': () => switchTab('workout'),
+    'go-history': () => switchTab('history'),
+    'rm-calc': () => openRmCalc(),
 
     'start-empty': () => {
       cur = { id: Store.uid(), date: Data.todayKey(), name: '', note: '', startedAt: new Date().toISOString(), finishedAt: null, done: false, exercises: [] };
@@ -694,6 +836,8 @@
     if (k === 'reps' && cur) { cur.exercises[+el.dataset.ex].sets[+el.dataset.set].reps = parseInt(v, 10) || 0; saveCur(); return; }
     if (k === 'duration' && cur) { cur.exercises[+el.dataset.ex].sets[+el.dataset.set].duration = parseFloat(v) || 0; saveCur(); return; }
     if (k === 'distance' && cur) { cur.exercises[+el.dataset.ex].sets[+el.dataset.set].distance = parseFloat(v) || 0; saveCur(); return; }
+    if (k === 'rm-weight') { rmState.weight = v; refreshRm(); return; }
+    if (k === 'rm-reps') { rmState.reps = v; refreshRm(); return; }
     if (k === 'pickq') { picker.q = v; const list = $('#pick-list'); if (list) list.innerHTML = filteredPickList(); return; }
     if (k === 'graph-ex') { state.graph.exerciseId = v; render(); return; }
     if (k === 'tpl-name') { state.menu.draft.name = v; return; }
@@ -803,7 +947,7 @@
     const pref = Store.getTheme();
     const light = pref === 'light' || (pref === 'system' && matchMedia('(prefers-color-scheme: light)').matches);
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-    const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', light ? '#eef1f6' : '#0f1420');
+    const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', light ? '#eef1f6' : '#070a11');
   }
   function relabelTabs() {
     const map = { workout: 'tab_record', history: 'tab_history', graph: 'tab_graph', menu: 'tab_menu', condition: 'tab_condition' };
