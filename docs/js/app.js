@@ -538,18 +538,66 @@
   }
   function poseSvg(p) { return `<svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">${poseInner(p)}</svg>`; }
 
+  // 動作パターンごとの「主に効く筋肉(具体)」と「フォームのポイント」(自作の一般的なコツ)
+  const POSE_MUSCLES = {
+    bench: '大胸筋・三角筋前部・上腕三頭筋', incline: '大胸筋上部・三角筋前部・上腕三頭筋', decline: '大胸筋下部・上腕三頭筋',
+    fly: '大胸筋', pullover: '大胸筋・広背筋', pushup: '大胸筋・上腕三頭筋・体幹',
+    pulldown: '広背筋・大円筋・上腕二頭筋', pullup: '広背筋・上腕二頭筋', row: '広背筋・僧帽筋・菱形筋',
+    deadlift: '脊柱起立筋・臀筋・ハムストリングス', ohp: '三角筋・上腕三頭筋', lateral: '三角筋中部',
+    reardelt: '三角筋後部・僧帽筋', curl: '上腕二頭筋', pushdown: '上腕三頭筋', triceps: '上腕三頭筋',
+    dip: '上腕三頭筋・大胸筋下部', squat: '大腿四頭筋・臀筋・ハムストリングス', legpress: '大腿四頭筋・臀筋',
+    legext: '大腿四頭筋', legcurl: 'ハムストリングス', hipthrust: '臀筋（大殿筋）',
+    adduction: '内転筋・外転筋', calf: '下腿三頭筋（ふくらはぎ）', crunch: '腹直筋', plank: '腹横筋・体幹',
+    backext: '脊柱起立筋・臀筋', twist: '腹斜筋', bike: '下半身・心肺持久力', run: '全身・心肺持久力'
+  };
+  const POSE_TIPS = {
+    bench: ['肩甲骨を寄せて胸を張り、肩を下げて固定する', 'バーは乳頭のあたりへ真っ直ぐ下ろす', '肘は張りすぎず約45〜75度をキープ', '下ろすときに息を吸い、押すときに吐く'],
+    incline: ['ベンチは30〜45度に設定（角度が急すぎると肩に効く）', '肩甲骨を寄せて胸を張り、鎖骨〜大胸筋上部へ下ろす', '肘を開きすぎない（約45度）', 'お尻と背中はベンチにつけたまま行う'],
+    decline: ['ベンチを15〜30度下げ、脚を固定する', 'バーは大胸筋下部へ下ろす', '肘を伸ばしきる直前で収縮を意識する'],
+    fly: ['肘を軽く曲げたまま角度を固定して弧を描く', '胸のストレッチを感じるところまで開く', '閉じるときは大胸筋で寄せる意識'],
+    pullover: ['肘を軽く曲げて頭の後ろまでストレッチ', '胸と広背筋の伸びを感じる', '腰が反りすぎないよう体幹を締める'],
+    pushup: ['体を頭から踵まで一直線に保つ', '手は肩幅よりやや広め', '胸が床すれすれまで下ろす'],
+    pulldown: ['肩をすくめず、肩甲骨を下げてから引く', 'バーは鎖骨〜胸上部へ引き下ろす', '反動を使わず広背筋で引く', '戻すときもゆっくり効かせる'],
+    pullup: ['肩甲骨を寄せて胸を張る', '顎がバーを越えるまで引く', '下ろすときも力を抜かない'],
+    row: ['肩甲骨を寄せながらみぞおち〜腹へ引く', '背中は丸めず胸を張る', '反動を使わずゆっくり戻す'],
+    deadlift: ['背中を丸めずニュートラルを保つ', 'バーは体の近くを通す', '床を押す意識で脚と股関節で立ち上がる', '腹圧を高めて腰を守る'],
+    ohp: ['体幹を締め、腰を反りすぎない', 'バー/ダンベルを頭の真上へ押し上げる', '下ろすときは耳の高さまで'],
+    lateral: ['反動を使わず肩の高さまで上げる', '小指側をやや上に、僧帽筋に頼らない', 'ゆっくり下ろして負荷を逃がさない'],
+    reardelt: ['前傾姿勢で肩甲骨は動かしすぎない', '肘を軽く曲げ、後方へ開く', '三角筋後部の収縮を意識'],
+    curl: ['肘を体側に固定して振らない', '手首を返さず二頭筋で挙げる', '下ろすときもゆっくり効かせる'],
+    pushdown: ['肘を体側に固定し前腕だけ動かす', '肘を伸ばしきって収縮させる', '反動を使わない'],
+    triceps: ['肘の位置を固定して上腕三頭筋を伸ばす', '頭の後ろでしっかりストレッチ', '肘を伸ばしきる'],
+    dip: ['やや前傾で胸下部、垂直で三頭に効く', '肩が上がらないよう下げる', '下ろしすぎて肩を痛めない'],
+    squat: ['足は肩幅、つま先はやや外向き', '膝とつま先の向きを揃える', '太ももが床と平行まで下ろす', '背中を丸めず胸を張る'],
+    legpress: ['膝を内に入れない（つま先と同方向）', '膝を伸ばしきってロックしない', '踵で押す意識'],
+    legext: ['反動を使わず膝を伸ばしきる', '一番上で大腿四頭筋を絞る', 'ゆっくり戻す'],
+    legcurl: ['反動を使わず踵をお尻へ引きつける', '収縮位置で止めて効かせる', 'ゆっくり戻す'],
+    hipthrust: ['肩甲骨をベンチに乗せる', '顎を引き、お尻を締めて持ち上げる', 'トップで骨盤を後傾させ1秒静止', '腰を反らせない'],
+    adduction: ['反動を使わずゆっくり閉じる/開く', '内もも/外ももの収縮を意識', '可動域いっぱいに動かす'],
+    calf: ['かかとを深く下げてストレッチ', 'つま先立ちで頂点まで上げる', '一番上で1秒止める'],
+    crunch: ['みぞおちを丸めるように起こす', '反動や首の力で引っ張らない', '腹直筋の収縮を意識'],
+    plank: ['頭から踵まで一直線を保つ', 'お尻を上げ下げしない', '腹部を締めて呼吸を止めない'],
+    backext: ['背中を反らせすぎず水平まで', '反動を使わずゆっくり', '臀筋と脊柱起立筋を意識'],
+    twist: ['骨盤は固定して上体だけひねる', '反動を使わずコントロール', '腹斜筋の収縮を意識'],
+    bike: ['サドル高は脚が軽く曲がる位置に', '一定の負荷とペースを保つ', '目標時間・距離を決めて行う'],
+    run: ['無理のないペースから始める', '着地は体の真下を意識', '呼吸を整えて一定ペースを保つ']
+  };
+
   function openExerciseInfo(exId) {
     const ex = Store.exerciseById(exId); if (!ex) return;
+    const pose = exercisePose(ex);
     const regions = exerciseRegions(ex);
-    const musc = Data.muscleName(ex.muscle) + (ex.sub ? ' / ' + ex.sub : '');
+    const musc = POSE_MUSCLES[pose] || (Data.muscleName(ex.muscle) + (ex.sub ? ' / ' + ex.sub : ''));
+    const tips = (Data.lang() === 'ja' && POSE_TIPS[pose]) ? POSE_TIPS[pose] : null;
     const qImg = encodeURIComponent(ex.name + ' 筋トレ マシン');
     const qVid = encodeURIComponent(ex.name + ' やり方');
     showSheet(`<h2>${esc(exName(ex))}</h2>
       <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
       <div class="sec-title">${t('pose_label')}</div>
-      <div class="posefig">${poseSvg(exercisePose(ex))}</div>
+      <div class="posefig">${poseSvg(pose)}</div>
       <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
       <div class="bodymap">${bodyMapSvg(regions)}</div>
+      ${tips ? `<div class="sec-title">${t('points_label')}</div><ul class="tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <a class="linkbtn mb" href="https://www.google.com/search?tbm=isch&q=${qImg}" target="_blank" rel="noopener noreferrer">${t('see_images')}</a>
       <a class="linkbtn" href="https://www.youtube.com/results?search_query=${qVid}" target="_blank" rel="noopener noreferrer">${t('see_video')}</a>
       <p class="muted small mt">${t('info_ext_note')}</p>`, { stack: true });

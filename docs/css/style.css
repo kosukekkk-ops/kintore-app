@@ -339,3 +339,5 @@ a.linkbtn:active { transform: scale(.98); }
 .rm-table td:last-child { text-align: right; color: var(--text-dim); }
 .rm-table td:first-child { color: var(--accent); font-weight: 600; }
 .sec-title { font-size: 13px; color: var(--text-dim); margin: 4px 2px 8px; font-weight: 600; }
+ul.tips { margin: 0 0 14px; padding-left: 20px; }
+ul.tips li { font-size: 14px; margin-bottom: 5px; line-height: 1.55; }
