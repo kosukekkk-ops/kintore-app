@@ -266,7 +266,9 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 }
 .pick-info { background: none; border: none; color: var(--text-dim); font-size: 17px; cursor: pointer; flex: none; padding: 2px 2px 2px 6px; }
 
-/* 種目情報: 筋肉マップ */
+/* 種目情報: 動作イラスト＋筋肉マップ */
+.posefig { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 10px; }
+.posefig svg { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto; }
 .bodymap { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
 .bodymap svg { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; }
 /* 外部リンクをボタン風に */

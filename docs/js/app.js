@@ -434,6 +434,96 @@
     s += `</svg>`;
     return s;
   }
+  /* ---- 動作イラスト(その種目をやっている図) ---- */
+  // 種目を動作パターン(ポーズ)に対応づける。順序=判定の優先度。
+  function exercisePose(ex) {
+    const n = ex.name;
+    // 脚(先に判定して「カール/エクステンション」の誤爆を防ぐ)
+    if (/レッグプレス/.test(n)) return 'legpress';
+    if (/レッグエクステンション/.test(n)) return 'legext';
+    if (/レッグカール/.test(n)) return 'legcurl';
+    if (/カーフ/.test(n)) return 'calf';
+    if (/ヒップスラスト|グルート|ブーティ/.test(n)) return 'hipthrust';
+    if (/アダクター|アブダクター/.test(n)) return 'adduction';
+    if (/スクワット|ハック|スミス|ランジ/.test(n)) return 'squat';
+    // 胸
+    if (/ベンチプレス|チェストプレス/.test(n)) return 'bench';
+    if (/フライ/.test(n) && ex.muscle === 'chest') return 'fly';
+    if (/プルオーバー/.test(n)) return 'pullover';
+    if (/腕立て/.test(n)) return 'pushup';
+    // 背中
+    if (/プルダウン|ラットプル/.test(n)) return 'pulldown';
+    if (/懸垂/.test(n)) return 'pullup';
+    if (/デッドリフト/.test(n)) return 'deadlift';
+    if (/ロー|ロウ/.test(n) && ex.muscle === 'back') return 'row';
+    // 肩
+    if (/ショルダープレス/.test(n)) return 'ohp';
+    if (/サイドレイズ|フロントレイズ/.test(n)) return 'lateral';
+    if (/リアデルト|リアレイズ/.test(n)) return 'reardelt';
+    // 腕
+    if (/プレスダウン/.test(n)) return 'pushdown';
+    if ((/エクステンション/.test(n) && ex.muscle === 'arm') || /フレンチプレス/.test(n)) return 'triceps';
+    if (/ディップ/.test(n)) return 'dip';
+    if (/カール/.test(n)) return 'curl';
+    // 腹・体幹
+    if (/バックエクステンション|ローマンチェア|GHD/.test(n)) return 'backext';
+    if (/トーソローテーション/.test(n)) return 'twist';
+    if (/クランチ|アブドミナル|レッグレイズ/.test(n)) return 'crunch';
+    if (/プランク/.test(n)) return 'plank';
+    // 有酸素
+    if (/バイク|サイクリング/.test(n)) return 'bike';
+    if (ex.muscle === 'cardio') return 'run';
+    // 部位フォールバック
+    return ({ chest: 'bench', back: 'row', shoulder: 'ohp', legs: 'squat', arm: 'curl', abs: 'crunch' })[ex.muscle] || 'curl';
+  }
+  // 描画ヘルパ(viewBox 0 0 200 150、床 y=134)
+  const _FG = 'stroke="var(--text-dim)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const _BR = 'stroke="var(--accent)" stroke-width="5" stroke-linecap="round"';
+  const _hd = (x, y) => `<circle cx="${x}" cy="${y}" r="8" fill="var(--text-dim)"/>`;
+  const _ch = (pts) => `<polyline points="${pts}" ${_FG}/>`;                 // 手足の連結
+  const _bar = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${_BR}/>` +
+    `<rect x="${x1 - 3}" y="${y1 - 9}" width="6" height="18" rx="2" fill="var(--accent)"/>` +
+    `<rect x="${x2 - 3}" y="${y2 - 9}" width="6" height="18" rx="2" fill="var(--accent)"/>`;
+  const _cable = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${_BR}/>`;
+  const _pad = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--accent)"/>`;
+  const _db = (x, y) => `<rect x="${x - 8}" y="${y - 3}" width="16" height="6" rx="3" fill="var(--accent)"/>`; // ダンベル
+  const _floor = () => `<line x1="14" y1="134" x2="186" y2="134" stroke="var(--border)" stroke-width="2"/>`;
+  const _bench = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="7" rx="2" fill="var(--border)"/><line x1="${x + 8}" y1="${y + 7}" x2="${x + 8}" y2="134" stroke="var(--border)" stroke-width="3"/><line x1="${x + w - 8}" y1="${y + 7}" x2="${x + w - 8}" y2="134" stroke="var(--border)" stroke-width="3"/>`;
+  const _seat = (x, y) => `<rect x="${x - 16}" y="${y}" width="32" height="8" rx="2" fill="var(--border)"/><rect x="${x + 12}" y="${y - 30}" width="8" height="34" rx="2" fill="var(--border)"/><line x1="${x - 12}" y1="${y + 8}" x2="${x - 12}" y2="134" stroke="var(--border)" stroke-width="3"/>`;
+  function poseInner(p) {
+    switch (p) {
+      case 'bench': return _floor() + _bench(60, 98, 80) + _hd(66, 94) + _ch('74,94 116,94') + _ch('116,94 132,112 132,133') + _ch('82,94 82,70') + _bar(58, 66, 106, 66);
+      case 'fly': return _floor() + _seat(100, 108) + _hd(100, 40) + _ch('100,48 100,86') + _ch('100,54 74,64') + _ch('100,54 126,64') + _db(72, 64) + _db(128, 64);
+      case 'pullover': return _floor() + _bench(60, 98, 80) + _hd(70, 94) + _ch('78,94 120,94') + _ch('120,94 134,112 134,133') + _ch('86,94 70,74') + _bar(58, 70, 82, 70);
+      case 'pushup': return _floor() + _hd(48, 96) + _ch('56,96 120,110') + _ch('60,98 60,124') + _ch('112,108 120,124') + _ch('120,110 150,120');
+      case 'pulldown': return _floor() + _seat(100, 110) + _hd(100, 46) + _ch('100,54 100,92') + _ch('100,58 82,44') + _ch('100,58 118,44') + _bar(66, 40, 134, 40) + _ch('100,92 88,118') + _ch('100,92 112,118');
+      case 'pullup': return _hd(100, 50) + _ch('100,58 100,98') + _ch('100,60 84,40') + _ch('100,60 116,40') + `<line x1="60" y1="34" x2="140" y2="34" ${_BR}/>` + _ch('100,98 92,124') + _ch('100,98 108,124');
+      case 'row': return _floor() + _seat(96, 110) + _hd(96, 46) + _ch('96,54 96,92') + _ch('96,58 124,66') + _cable(124, 60, 124, 74) + _ch('96,92 118,100');
+      case 'deadlift': return _floor() + _hd(92, 40) + _ch('100,46 118,78') + _ch('118,78 118,112 110,132') + _ch('118,78 128,112 128,132') + _ch('104,54 98,96') + _bar(70, 100, 126, 100);
+      case 'ohp': return _floor() + _seat(100, 108) + _hd(100, 46) + _ch('100,54 100,90') + _ch('100,58 84,40') + _ch('100,58 116,40') + _bar(70, 34, 130, 34);
+      case 'lateral': return _floor() + _hd(100, 36) + _ch('100,44 100,96') + _ch('100,50 74,52') + _ch('100,50 126,52') + _db(72, 52) + _db(128, 52) + _ch('100,96 90,132') + _ch('100,96 110,132');
+      case 'reardelt': return _floor() + _hd(70, 60) + _ch('78,64 122,88') + _ch('86,70 86,44') + _ch('86,70 108,58') + _db(86, 42) + _ch('122,88 118,132') + _ch('122,88 132,132');
+      case 'curl': return _floor() + _hd(100, 34) + _ch('100,42 100,96') + _ch('100,52 92,72 104,84') + _db(104, 84) + _ch('100,96 90,132') + _ch('100,96 110,132');
+      case 'pushdown': return _floor() + _hd(100, 34) + _ch('100,42 100,96') + _ch('100,52 110,74 104,92') + _cable(104, 28, 104, 74) + _cable(94, 92, 114, 92) + _ch('100,96 90,132') + _ch('100,96 110,132');
+      case 'triceps': return _floor() + _seat(100, 108) + _hd(100, 42) + _ch('100,50 100,88') + _ch('100,54 110,40 100,30') + _db(100, 28) + _ch('100,54 90,40 100,30');
+      case 'dip': return _hd(100, 44) + _ch('100,52 100,96') + _ch('100,56 82,62') + _ch('100,56 118,62') + `<line x1="72" y1="62" x2="90" y2="62" ${_BR}/><line x1="110" y1="62" x2="128" y2="62" ${_BR}/>` + _ch('100,96 96,120') + _ch('100,96 108,120');
+      case 'squat': return _floor() + _hd(100, 34) + _ch('100,42 100,80') + _ch('100,80 82,102 82,132') + _ch('100,80 118,102 118,132') + _ch('100,48 82,54') + _ch('100,48 118,54') + _bar(72, 50, 128, 50);
+      case 'legpress': return _floor() + `<rect x="34" y="100" width="40" height="8" rx="2" fill="var(--border)"/>` + _hd(52, 92) + _ch('60,94 88,100') + _ch('88,100 114,86 138,92') + _pad(138, 68, 10, 46);
+      case 'legext': return _floor() + _seat(92, 100) + _hd(92, 60) + _ch('92,68 92,98') + _ch('92,98 116,96') + _ch('116,96 122,80') + _pad(117, 74, 12, 9);
+      case 'legcurl': return _floor() + _bench(56, 94, 82) + _hd(64, 90) + _ch('72,90 116,90') + _ch('116,90 132,90') + _ch('132,90 130,108') + _pad(124, 104, 14, 9);
+      case 'hipthrust': return _floor() + `<rect x="54" y="90" width="34" height="7" rx="2" fill="var(--border)"/>` + _hd(62, 86) + _ch('70,88 96,88') + _ch('96,88 116,108 116,132') + _pad(86, 78, 22, 9);
+      case 'adduction': return _floor() + _seat(100, 104) + _hd(100, 60) + _ch('100,68 100,102') + _ch('100,102 82,118') + _ch('100,102 118,118');
+      case 'calf': return _floor() + _hd(100, 34) + _ch('100,42 100,94') + _ch('100,94 96,124') + _ch('100,94 104,124') + `<circle cx="96" cy="128" r="4" fill="var(--text-dim)"/><circle cx="104" cy="128" r="4" fill="var(--text-dim)"/>` + _ch('100,52 84,52') + _ch('100,52 116,52') + _db(80, 52) + _db(120, 52);
+      case 'crunch': return _floor() + _hd(60, 104) + _ch('68,104 96,110') + _ch('96,110 116,96 116,120') + _ch('72,104 84,90');
+      case 'plank': return _floor() + _hd(52, 100) + _ch('60,102 140,116') + _ch('60,104 58,120') + _ch('140,116 150,120');
+      case 'backext': return _floor() + `<rect x="96" y="98" width="34" height="8" rx="2" fill="var(--border)"/><line x1="120" y1="106" x2="120" y2="134" stroke="var(--border)" stroke-width="3"/>` + _hd(60, 76) + _ch('66,78 100,100') + _ch('100,100 120,102');
+      case 'twist': return _floor() + _seat(100, 108) + _hd(100, 44) + _ch('100,52 100,90') + _ch('100,58 120,54') + _ch('100,58 116,72') + `<path d="M116 44 A18 18 0 0 1 124 62" ${_BR} fill="none"/>`;
+      case 'bike': return _floor() + `<circle cx="130" cy="112" r="20" ${_BR} fill="none"/><circle cx="72" cy="118" r="14" ${_BR} fill="none"/><line x1="72" y1="118" x2="110" y2="96" ${_FG}/>` + _hd(96, 60) + _ch('100,68 108,96') + _ch('102,72 122,80') + _ch('108,96 130,112');
+      case 'run': default: return _floor() + _hd(104, 34) + _ch('104,42 96,86') + _ch('100,54 118,64') + _ch('100,54 82,48') + _ch('96,86 118,96 116,124') + _ch('96,86 78,104 84,128');
+    }
+  }
+  function poseSvg(p) { return `<svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">${poseInner(p)}</svg>`; }
+
   function openExerciseInfo(exId) {
     const ex = Store.exerciseById(exId); if (!ex) return;
     const regions = exerciseRegions(ex);
@@ -442,8 +532,10 @@
     const qVid = encodeURIComponent(ex.name + ' やり方');
     showSheet(`<h2>${esc(exName(ex))}</h2>
       <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
-      <div class="bodymap">${bodyMapSvg(regions)}</div>
+      <div class="sec-title">${t('pose_label')}</div>
+      <div class="posefig">${poseSvg(exercisePose(ex))}</div>
       <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
+      <div class="bodymap">${bodyMapSvg(regions)}</div>
       <a class="linkbtn mb" href="https://www.google.com/search?tbm=isch&q=${qImg}" target="_blank" rel="noopener noreferrer">${t('see_images')}</a>
       <a class="linkbtn" href="https://www.youtube.com/results?search_query=${qVid}" target="_blank" rel="noopener noreferrer">${t('see_video')}</a>
       <p class="muted small mt">${t('info_ext_note')}</p>`, { stack: true });
