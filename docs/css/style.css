@@ -212,10 +212,10 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 .cal-head { display: flex; align-items: center; margin-bottom: 12px; }
 .cal-head .m { flex: 1; text-align: center; font-weight: 600; font-size: 16px; }
 .cal-head button { background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 16px; }
-.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
-.cal-grid .dow { text-align: center; font-size: 11px; color: var(--text-dim); padding: 4px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-grid .dow { text-align: center; font-size: 11px; color: var(--text-dim); padding: 4px 0; min-width: 0; }
 .cal-cell {
-  aspect-ratio: 1; border-radius: 9px; display: flex; flex-direction: column;
+  aspect-ratio: 1; min-width: 0; border-radius: 9px; display: flex; flex-direction: column;
   align-items: center; justify-content: center; font-size: 13px; position: relative;
   background: var(--bg-elev); border: 1px solid transparent;
 }
