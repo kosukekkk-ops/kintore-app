@@ -14,49 +14,109 @@ const Data = (() => {
     { key: 'legs',     ja: '脚',     en: 'Legs',      cls: 'm-legs' },
     { key: 'shoulder', ja: '肩',     en: 'Shoulders', cls: 'm-shoulder' },
     { key: 'arm',      ja: '腕',     en: 'Arms',      cls: 'm-arm' },
-    { key: 'abs',      ja: '腹筋',   en: 'Abs',       cls: 'm-abs' },
-    { key: 'cardio',   ja: '有酸素', en: 'Cardio',    cls: 'm-cardio' }
+    { key: 'abs',      ja: '腹・体幹', en: 'Core',      cls: 'm-abs' },
+    { key: 'cardio',   ja: '有酸素',   en: 'Cardio',    cls: 'm-cardio' }
   ];
   const muscleMap = Object.fromEntries(MUSCLES.map(m => [m.key, m]));
   function muscleName(key) { const m = muscleMap[key]; return m ? (lang() === 'en' ? m.en : m.ja) : key; }
   const isCardioMuscle = (key) => key === 'cardio';
 
-  /* ---------- 初期種目(約30種目)。en は英語表示名 ---------- */
+  // サブ部位の表示順(部位内でのグループ見出しの並び)
+  const SUB_ORDER = ['大腿四頭筋', 'ハムストリングス', '臀部', '内転・外転', 'ふくらはぎ', '上腕二頭筋', '上腕三頭筋'];
+
+  /* ---------- 初期種目。muscle=部位, sub=サブ部位(任意), equip=器具, en=英語名(任意) ---------- */
+  const SEED_VERSION = 2; // これを上げると既存ユーザーにも不足分の初期種目が追加される
   const SEED_EXERCISES = [
-    { name: 'ベンチプレス', en: 'Bench Press', muscle: 'chest' },
-    { name: 'ダンベルベンチプレス', en: 'Dumbbell Bench Press', muscle: 'chest' },
-    { name: 'インクラインベンチプレス', en: 'Incline Bench Press', muscle: 'chest' },
-    { name: 'ダンベルフライ', en: 'Dumbbell Fly', muscle: 'chest' },
-    { name: 'チェストプレス（マシン）', en: 'Chest Press (Machine)', muscle: 'chest' },
-    { name: '腕立て伏せ', en: 'Push-up', muscle: 'chest' },
-    { name: 'デッドリフト', en: 'Deadlift', muscle: 'back' },
-    { name: 'ラットプルダウン', en: 'Lat Pulldown', muscle: 'back' },
-    { name: '懸垂（チンニング）', en: 'Pull-up', muscle: 'back' },
-    { name: 'ベントオーバーロウ', en: 'Bent-over Row', muscle: 'back' },
-    { name: 'シーテッドロウ', en: 'Seated Row', muscle: 'back' },
-    { name: 'ワンハンドダンベルロウ', en: 'One-arm Dumbbell Row', muscle: 'back' },
-    { name: 'スクワット', en: 'Squat', muscle: 'legs' },
-    { name: 'レッグプレス', en: 'Leg Press', muscle: 'legs' },
-    { name: 'レッグエクステンション', en: 'Leg Extension', muscle: 'legs' },
-    { name: 'レッグカール', en: 'Leg Curl', muscle: 'legs' },
-    { name: 'ブルガリアンスクワット', en: 'Bulgarian Split Squat', muscle: 'legs' },
-    { name: 'カーフレイズ', en: 'Calf Raise', muscle: 'legs' },
-    { name: 'ショルダープレス', en: 'Shoulder Press', muscle: 'shoulder' },
-    { name: 'サイドレイズ', en: 'Side Raise', muscle: 'shoulder' },
-    { name: 'フロントレイズ', en: 'Front Raise', muscle: 'shoulder' },
-    { name: 'リアレイズ', en: 'Rear Raise', muscle: 'shoulder' },
-    { name: 'バーベルカール', en: 'Barbell Curl', muscle: 'arm' },
-    { name: 'ダンベルカール', en: 'Dumbbell Curl', muscle: 'arm' },
-    { name: 'ハンマーカール', en: 'Hammer Curl', muscle: 'arm' },
-    { name: 'トライセプスプレスダウン', en: 'Triceps Pushdown', muscle: 'arm' },
-    { name: 'フレンチプレス', en: 'French Press', muscle: 'arm' },
-    { name: 'ディップス', en: 'Dips', muscle: 'arm' },
-    { name: 'クランチ', en: 'Crunch', muscle: 'abs' },
-    { name: 'レッグレイズ', en: 'Leg Raise', muscle: 'abs' },
-    { name: 'プランク', en: 'Plank', muscle: 'abs' },
-    { name: 'ランニング', en: 'Running', muscle: 'cardio' },
-    { name: 'サイクリング', en: 'Cycling', muscle: 'cardio' },
-    { name: 'ウォーキング', en: 'Walking', muscle: 'cardio' }
+    // 胸
+    { name: 'ベンチプレス', en: 'Bench Press', muscle: 'chest', equip: 'フリー' },
+    { name: 'ダンベルベンチプレス', en: 'Dumbbell Bench Press', muscle: 'chest', equip: 'フリー' },
+    { name: 'インクラインベンチプレス', en: 'Incline Bench Press', muscle: 'chest', equip: 'フリー' },
+    { name: 'ダンベルフライ', en: 'Dumbbell Fly', muscle: 'chest', equip: 'フリー' },
+    { name: 'チェストプレス', en: 'Chest Press', muscle: 'chest', equip: 'マシン' },
+    { name: 'インクラインチェストプレス', muscle: 'chest', equip: 'マシン' },
+    { name: 'デクラインチェストプレス', muscle: 'chest', equip: 'マシン' },
+    { name: 'ペックフライ', en: 'Pec Fly', muscle: 'chest', equip: 'マシン' },
+    { name: 'ケーブルフライ', muscle: 'chest', equip: 'ケーブル' },
+    { name: 'ケーブルクロスオーバー', muscle: 'chest', equip: 'ケーブル' },
+    { name: 'アイソラテラルチェストプレス', muscle: 'chest', equip: 'プレート' },
+    { name: 'ハンマーストレングス チェストプレス', muscle: 'chest', equip: 'マシン' },
+    { name: '腕立て伏せ', en: 'Push-up', muscle: 'chest', equip: '自重' },
+    // 背中
+    { name: 'デッドリフト', en: 'Deadlift', muscle: 'back', equip: 'フリー' },
+    { name: 'ラットプルダウン', en: 'Lat Pulldown', muscle: 'back', equip: 'マシン' },
+    { name: 'フロントラットプルダウン', muscle: 'back', equip: 'マシン' },
+    { name: 'アイソラテラルラットプル', muscle: 'back', equip: 'マシン' },
+    { name: '懸垂（チンニング）', en: 'Pull-up', muscle: 'back', equip: '自重' },
+    { name: 'シーテッドロー', en: 'Seated Row', muscle: 'back', equip: 'マシン' },
+    { name: 'ローロー', muscle: 'back', equip: 'マシン' },
+    { name: 'DYロー', muscle: 'back', equip: 'マシン' },
+    { name: 'アイソラテラルロー', muscle: 'back', equip: 'マシン' },
+    { name: 'Tバーロー', muscle: 'back', equip: 'プレート' },
+    { name: 'ハイロー', muscle: 'back', equip: 'マシン' },
+    { name: 'ケーブルロー', muscle: 'back', equip: 'ケーブル' },
+    { name: 'ベントオーバーロウ', en: 'Bent-over Row', muscle: 'back', equip: 'フリー' },
+    { name: 'ワンハンドダンベルロウ', en: 'One-arm Row', muscle: 'back', equip: 'フリー' },
+    { name: 'プルオーバーマシン', muscle: 'back', equip: 'マシン' },
+    { name: 'ノーチラス プルオーバー', muscle: 'back', equip: 'マシン' },
+    { name: 'ハンマーストレングス ローロー', muscle: 'back', equip: 'マシン' },
+    { name: 'ハンマーストレングス DYロー', muscle: 'back', equip: 'マシン' },
+    // 肩
+    { name: 'ショルダープレス', en: 'Shoulder Press', muscle: 'shoulder', equip: 'マシン' },
+    { name: 'アイソラテラルショルダープレス', muscle: 'shoulder', equip: 'マシン' },
+    { name: 'サイドレイズ', en: 'Side Raise', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'フロントレイズ', en: 'Front Raise', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'リアデルトフライ', en: 'Rear Delt Fly', muscle: 'shoulder', equip: 'マシン' },
+    // 腕
+    { name: 'アームカール', muscle: 'arm', sub: '上腕二頭筋', equip: 'マシン' },
+    { name: 'バーベルカール', en: 'Barbell Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'フリー' },
+    { name: 'ダンベルカール', en: 'Dumbbell Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'フリー' },
+    { name: 'ハンマーカール', en: 'Hammer Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'フリー' },
+    { name: 'プリーチャーカール', muscle: 'arm', sub: '上腕二頭筋', equip: 'マシン' },
+    { name: 'トライセプスプレスダウン', en: 'Triceps Pushdown', muscle: 'arm', sub: '上腕三頭筋', equip: 'ケーブル' },
+    { name: 'トライセプスエクステンション', muscle: 'arm', sub: '上腕三頭筋', equip: 'マシン' },
+    { name: 'シーテッドディップ', muscle: 'arm', sub: '上腕三頭筋', equip: 'マシン' },
+    { name: 'アシストディップ', muscle: 'arm', sub: '上腕三頭筋', equip: 'マシン' },
+    { name: 'フレンチプレス', en: 'French Press', muscle: 'arm', sub: '上腕三頭筋', equip: 'フリー' },
+    // 脚
+    { name: 'スクワット', en: 'Squat', muscle: 'legs', sub: '大腿四頭筋', equip: 'フリー' },
+    { name: 'レッグプレス', en: 'Leg Press', muscle: 'legs', sub: '大腿四頭筋', equip: 'マシン' },
+    { name: 'ハックスクワット', muscle: 'legs', sub: '大腿四頭筋', equip: 'マシン' },
+    { name: 'スクワットプレス', muscle: 'legs', sub: '大腿四頭筋', equip: 'マシン' },
+    { name: 'レッグエクステンション', en: 'Leg Extension', muscle: 'legs', sub: '大腿四頭筋', equip: 'マシン' },
+    { name: 'プレートロードレッグプレス', muscle: 'legs', sub: '大腿四頭筋', equip: 'プレート' },
+    { name: 'ブルガリアンスクワット', en: 'Bulgarian Split Squat', muscle: 'legs', sub: '大腿四頭筋', equip: 'フリー' },
+    { name: 'スミスマシン スクワット', muscle: 'legs', sub: '大腿四頭筋', equip: 'スミス' },
+    { name: 'シーテッドレッグカール', muscle: 'legs', sub: 'ハムストリングス', equip: 'マシン' },
+    { name: 'ライイングレッグカール', muscle: 'legs', sub: 'ハムストリングス', equip: 'マシン' },
+    { name: 'スタンディングレッグカール', muscle: 'legs', sub: 'ハムストリングス', equip: 'マシン' },
+    { name: 'ヒップスラスト', en: 'Hip Thrust', muscle: 'legs', sub: '臀部', equip: 'マシン' },
+    { name: 'グルートドライブ', muscle: 'legs', sub: '臀部', equip: 'マシン' },
+    { name: 'ブーティビルダー', muscle: 'legs', sub: '臀部', equip: 'マシン' },
+    { name: 'グルートマシン', muscle: 'legs', sub: '臀部', equip: 'マシン' },
+    { name: 'アダクター', muscle: 'legs', sub: '内転・外転', equip: 'マシン' },
+    { name: 'アブダクター', muscle: 'legs', sub: '内転・外転', equip: 'マシン' },
+    { name: 'シーテッドカーフレイズ', muscle: 'legs', sub: 'ふくらはぎ', equip: 'マシン' },
+    { name: 'スタンディングカーフレイズ', muscle: 'legs', sub: 'ふくらはぎ', equip: 'マシン' },
+    { name: 'レッグプレスカーフ', muscle: 'legs', sub: 'ふくらはぎ', equip: 'マシン' },
+    // 腹・体幹
+    { name: 'アブドミナルクランチ', muscle: 'abs', equip: 'マシン' },
+    { name: 'クランチ', en: 'Crunch', muscle: 'abs', equip: '自重' },
+    { name: 'レッグレイズ', en: 'Leg Raise', muscle: 'abs', equip: '自重' },
+    { name: 'プランク', en: 'Plank', muscle: 'abs', equip: '自重' },
+    { name: 'トーソローテーション', muscle: 'abs', equip: 'マシン' },
+    { name: 'バックエクステンション', muscle: 'abs', equip: 'マシン' },
+    { name: 'ローマンチェア', muscle: 'abs', equip: 'マシン' },
+    { name: 'GHD（グルートハムデベロッパー）', muscle: 'abs', equip: 'マシン' },
+    // 有酸素
+    { name: 'ランニング', en: 'Running', muscle: 'cardio', equip: '有酸素' },
+    { name: 'トレッドミル', muscle: 'cardio', equip: '有酸素' },
+    { name: 'クロストレーナー', muscle: 'cardio', equip: '有酸素' },
+    { name: 'エアロバイク', muscle: 'cardio', equip: '有酸素' },
+    { name: 'リカンベントバイク', muscle: 'cardio', equip: '有酸素' },
+    { name: 'ステアクライマー', muscle: 'cardio', equip: '有酸素' },
+    { name: 'ローイングエルゴメーター', muscle: 'cardio', equip: '有酸素' },
+    { name: 'サイクリング', en: 'Cycling', muscle: 'cardio', equip: '有酸素' },
+    { name: 'ウォーキング', en: 'Walking', muscle: 'cardio', equip: '有酸素' }
   ];
 
   /* ---------- 単位換算(内部は常に kg) ---------- */
@@ -125,7 +185,7 @@ const Data = (() => {
       col_set: '#', col_reps: '回', col_done: '済', col_min: '分', col_km: 'km', add_set: '＋ セット', add_warm: '＋ ウォームアップ',
       no_exercise_toast: '種目がありません', saved_workout: 'ワークアウトを保存しました 💪', discard_confirm: 'このワークアウトを破棄しますか？',
       // picker
-      pick_title: '種目を選ぶ', search_ph: '🔍 種目名で検索', all: 'すべて', no_match: '該当する種目がありません', add_custom: '＋ カスタム種目を追加',
+      pick_title: '種目を選ぶ', search_ph: '🔍 種目名・器具で検索', all: 'すべて', no_match: '該当する種目がありません', add_custom: '＋ カスタム種目を追加', recent_ex: '最近使った種目',
       custom_title: 'カスタム種目を追加', ex_name: '種目名', ex_name_ph: '例: ケーブルクロスオーバー', part: '部位', add_do: '追加する',
       need_name: '種目名を入力してください', ex_added: '種目を追加しました',
       // ex menu
@@ -178,7 +238,7 @@ const Data = (() => {
       session_note: 'Session note', session_note_ph: 'Overall notes, condition, etc.', discard: 'Discard', finish_save: 'Finish & save', save_do: 'Save',
       col_set: '#', col_reps: 'reps', col_done: '✓', col_min: 'min', col_km: 'km', add_set: '＋ Set', add_warm: '＋ Warm-up',
       no_exercise_toast: 'No exercises', saved_workout: 'Workout saved 💪', discard_confirm: 'Discard this workout?',
-      pick_title: 'Choose exercise', search_ph: '🔍 Search by name', all: 'All', no_match: 'No matching exercise', add_custom: '＋ Add custom exercise',
+      pick_title: 'Choose exercise', search_ph: '🔍 Search name or gear', all: 'All', no_match: 'No matching exercise', add_custom: '＋ Add custom exercise', recent_ex: 'Recently used',
       custom_title: 'Add custom exercise', ex_name: 'Exercise name', ex_name_ph: 'e.g. Cable Crossover', part: 'Muscle group', add_do: 'Add',
       need_name: 'Please enter a name', ex_added: 'Exercise added',
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
@@ -216,7 +276,7 @@ const Data = (() => {
   }
 
   return {
-    MUSCLES, muscleMap, muscleName, isCardioMuscle, SEED_EXERCISES,
+    MUSCLES, muscleMap, muscleName, isCardioMuscle, SEED_EXERCISES, SEED_VERSION, SUB_ORDER,
     KG_TO_LB, kgToDisplay, displayToKg, unitLabel, fmtNum,
     sessionVolumeKg, sessionSetCount, estimate1RM,
     dateKey, todayKey, fmtDate, fmtDateShort, fmtMonthYear, fmtClock, dow, DOW_JA,

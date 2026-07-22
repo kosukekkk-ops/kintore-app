@@ -252,8 +252,18 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 @keyframes slideup { from { transform: translateY(100%);} to { transform: none; } }
 .sheet .grab { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 8px auto 12px; }
 .sheet h2 { font-size: 17px; margin: 0 0 12px; }
-.pick-row { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
-.pick-row .pname { flex: 1; }
+.pick-row { display: flex; align-items: center; gap: 8px; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.pick-row .pname { flex: 1; min-width: 0; }
+.pick-group {
+  position: sticky; top: 0; z-index: 1; background: var(--bg-card);
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  padding: 10px 4px 6px; margin-top: 4px; border-bottom: 1px solid var(--border);
+}
+.pick-sub { font-size: 11px; color: var(--text-dim); padding: 8px 4px 2px 10px; font-weight: 600; }
+.etag {
+  font-size: 10px; padding: 2px 7px; border-radius: 999px; flex: none;
+  background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border);
+}
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 80px);
   background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px;

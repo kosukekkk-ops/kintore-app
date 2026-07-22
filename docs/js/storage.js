@@ -107,13 +107,29 @@ const Store = (() => {
     },
     deleteLog(date) { this.setLogs(this.getLogs().filter(l => l.date !== date)); },
 
-    /* ---------- seed(初回起動時の初期種目) ---------- */
-    ensureSeed() {
-      if (this.getExercises().length > 0) return;
-      // Data は data.js の top-level const。ブラウザでは window に載らないため bare 参照する。
+    /* ---------- seed(初回起動時の初期種目 + 既存ユーザーへの不足分追加) ---------- */
+    // Data は data.js の top-level const。ブラウザでは window に載らないため bare 参照する。
+    _seedList() {
       const seed = (typeof Data !== 'undefined' && Data.SEED_EXERCISES) || [];
-      const list = seed.map((e, i) => ({ id: uid(), name: e.name, en: e.en, muscle: e.muscle, custom: false, order: i }));
-      this.setExercises(list);
+      return seed.map((e, i) => ({ id: uid(), name: e.name, en: e.en, muscle: e.muscle, sub: e.sub || '', equip: e.equip || '', custom: false, order: i }));
+    },
+    ensureSeed() {
+      const seedVer = (typeof Data !== 'undefined' && Data.SEED_VERSION) || 1;
+      if (this.getExercises().length === 0) {
+        this.setExercises(this._seedList());
+        this.setSettings({ seedVersion: seedVer });
+        return;
+      }
+      // 既存インストール: SEED_VERSION が上がっていたら、名前が未登録の初期種目だけ追加する
+      const stored = this.getSettings().seedVersion || 1;
+      if (stored < seedVer) {
+        const existingNames = new Set(this.getExercises().map(e => e.name));
+        const list = this.getExercises();
+        let order = list.length;
+        this._seedList().forEach(e => { if (!existingNames.has(e.name)) { e.order = order++; list.push(e); } });
+        this.setExercises(list);
+        this.setSettings({ seedVersion: seedVer });
+      }
     },
 
     /* ---------- export / import / reset ---------- */

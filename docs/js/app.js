@@ -376,11 +376,54 @@
       <div id="pick-list">${filteredPickList()}</div>
       <button class="btn ghost mt" data-act="new-exercise">${t('add_custom')}</button>`;
   }
+  // 直近に使った種目のID(重複なし・新しい順)
+  function recentExerciseIds(limit) {
+    const ids = [], seen = new Set();
+    const sessions = Store.getSessions().slice().sort((a, b) => (b.startedAt || b.date).localeCompare(a.startedAt || a.date));
+    for (const s of sessions) {
+      for (const we of s.exercises) {
+        if (!seen.has(we.exerciseId) && Store.exerciseById(we.exerciseId)) { seen.add(we.exerciseId); ids.push(we.exerciseId); }
+        if (ids.length >= limit) return ids;
+      }
+    }
+    return ids;
+  }
+  function pickRow(e, showMuscle) {
+    const tags = (showMuscle ? muscleTag(e.muscle) : '') + (e.equip ? `<span class="etag">${esc(e.equip)}</span>` : '');
+    return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}</div>`;
+  }
+  // 部位内をサブ部位の見出しでグループ化(サブ無しは先頭にそのまま)
+  function renderWithSubs(items) {
+    const noSub = items.filter(e => !e.sub);
+    let html = noSub.map(e => pickRow(e, false)).join('');
+    const subs = {};
+    items.filter(e => e.sub).forEach(e => { (subs[e.sub] = subs[e.sub] || []).push(e); });
+    const order = Data.SUB_ORDER.filter(s => subs[s]).concat(Object.keys(subs).filter(s => !Data.SUB_ORDER.includes(s)));
+    order.forEach(s => { html += `<div class="pick-sub">${esc(s)}</div>` + subs[s].map(e => pickRow(e, false)).join(''); });
+    return html;
+  }
   function filteredPickList() {
-    let list = Store.getExercises().slice().sort((a, b) => a.muscle.localeCompare(b.muscle) || a.order - b.order);
-    if (picker.muscle !== 'all') list = list.filter(e => e.muscle === picker.muscle);
-    if (picker.q) { const q = picker.q.toLowerCase(); list = list.filter(e => exName(e).toLowerCase().includes(q) || e.name.toLowerCase().includes(q)); }
-    return list.map(e => `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${muscleTag(e.muscle)}</div>`).join('') || `<p class="muted center">${t('no_match')}</p>`;
+    const all = Store.getExercises();
+    // 検索モード: 部位横断でフラット表示(部位タグ付き)
+    if (picker.q) {
+      const q = picker.q.toLowerCase();
+      const list = all.filter(e => exName(e).toLowerCase().includes(q) || e.name.toLowerCase().includes(q) || (e.equip || '').includes(picker.q))
+        .sort((a, b) => a.muscle.localeCompare(b.muscle) || a.order - b.order);
+      return list.map(e => pickRow(e, true)).join('') || `<p class="muted center">${t('no_match')}</p>`;
+    }
+    let html = '';
+    if (picker.muscle === 'all') {
+      const rec = recentExerciseIds(6).map(id => Store.exerciseById(id)).filter(Boolean);
+      if (rec.length) html += `<div class="pick-group">🕒 ${t('recent_ex')}</div>` + rec.map(e => pickRow(e, true)).join('');
+      Data.MUSCLES.forEach(m => {
+        const items = all.filter(e => e.muscle === m.key).sort((a, b) => a.order - b.order);
+        if (items.length) html += `<div class="pick-group">${esc(Data.muscleName(m.key))}</div>` + renderWithSubs(items);
+      });
+    } else {
+      const items = all.filter(e => e.muscle === picker.muscle).sort((a, b) => a.order - b.order);
+      html += renderWithSubs(items);
+    }
+    return html || `<p class="muted center">${t('no_match')}</p>`;
   }
   function refreshPicker() {
     const ov = $('.sheet-overlay'); if (!ov) return;
