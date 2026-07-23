@@ -479,9 +479,9 @@
     return ({ chest: 'bench', back: 'row', shoulder: 'ohp', legs: 'squat', arm: 'curl', abs: 'crunch' })[ex.muscle] || 'curl';
   }
   // 描画ヘルパ(viewBox 0 0 200 150、床 y=134)
-  const _FG = 'stroke="var(--fig)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const _FG = 'stroke="var(--fig)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"';
   const _BR = 'stroke="var(--accent)" stroke-width="6" stroke-linecap="round"';
-  const _hd = (x, y) => `<circle cx="${x}" cy="${y}" r="10" fill="var(--fig)"/>`;
+  const _hd = (x, y) => `<circle cx="${x}" cy="${y}" r="11" fill="var(--fig)"/>`;
   const _ch = (pts) => `<polyline points="${pts}" ${_FG}/>`;                 // 手足の連結
   const _bar = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${_BR}/>` +
     `<rect x="${x1 - 3}" y="${y1 - 9}" width="6" height="18" rx="2" fill="var(--accent)"/>` +
@@ -495,12 +495,27 @@
   function poseInner(p) {
     switch (p) {
       case 'bench': return _floor() + _bench(60, 98, 80) + _hd(66, 94) + _ch('74,94 116,94') + _ch('116,94 132,112 132,133') + _ch('82,94 82,70') + _bar(58, 66, 106, 66);
-      // インクライン: 上半身を起こした斜めのベンチ(頭が高い側)
+      // インクライン: 斜めベンチで胸上部を狙う。対象筋を色分けラベル表示(自作イラスト)
       case 'incline': return _floor() +
-        `<line x1="60" y1="124" x2="104" y2="60" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
-        `<line x1="60" y1="124" x2="92" y2="130" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
-        `<line x1="70" y1="128" x2="70" y2="134" stroke="var(--border)" stroke-width="3"/>` +
-        _hd(108, 56) + _ch('100,64 74,114') + _ch('74,114 68,132') + _ch('74,114 90,130') + _ch('96,72 92,50') + _bar(70, 48, 116, 48);
+        // 斜めのベンチ(背もたれ+座面)
+        `<line x1="96" y1="126" x2="142" y2="58" stroke="var(--border)" stroke-width="11" stroke-linecap="round"/>` +
+        `<line x1="96" y1="126" x2="122" y2="132" stroke="var(--border)" stroke-width="11" stroke-linecap="round"/>` +
+        `<line x1="108" y1="130" x2="108" y2="134" stroke="var(--border)" stroke-width="3"/>` +
+        // 脚(先に描いて胴で股関節を隠す)
+        _ch('96,112 84,130') + _ch('96,112 104,131') +
+        // 胴(塗りで厚みを出す)
+        `<polygon points="140,58 128,72 98,116 88,104" fill="var(--fig)"/>` +
+        _hd(148, 52) +
+        // 腕→バーベル
+        _ch('126,70 122,48 118,40') + _bar(98, 36, 142, 36) +
+        // 対象筋のハイライト(赤=大胸筋上部/橙=三角筋前部/青=上腕三頭筋)
+        `<ellipse cx="122" cy="80" rx="11" ry="7" fill="var(--ng)" transform="rotate(-48 122 80)"/>` +
+        `<circle cx="132" cy="66" r="6" fill="var(--warn)"/>` +
+        `<ellipse cx="126" cy="53" rx="4.5" ry="9" fill="var(--accent)" transform="rotate(-38 126 53)"/>` +
+        // ラベル(リーダー線付き)
+        `<text x="4" y="72" font-size="10" fill="var(--ng)">大胸筋上部</text><line x1="53" y1="69" x2="114" y2="80" stroke="var(--ng)" stroke-width="1"/>` +
+        `<text x="4" y="98" font-size="10" fill="var(--warn)">三角筋前部</text><line x1="53" y1="95" x2="128" y2="68" stroke="var(--warn)" stroke-width="1"/>` +
+        `<text x="4" y="122" font-size="10" fill="var(--accent)">上腕三頭筋</text><line x1="53" y1="119" x2="124" y2="55" stroke="var(--accent)" stroke-width="1"/>`;
       // デクライン: 頭が低い側の斜めベンチ
       case 'decline': return _floor() +
         `<line x1="56" y1="118" x2="104" y2="70" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
