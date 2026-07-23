@@ -19,6 +19,8 @@
   --m-arm: #a78bfa;
   --m-abs: #22d3ee;
   --m-cardio: #fb923c;
+  /* 動作イラストの人物色 */
+  --fig: #c2cce0;
   /* ホームのヒーロー(ダーク) */
   --hero: radial-gradient(120% 90% at 50% -10%, rgba(79,157,255,.18), rgba(124,92,255,.06) 45%, transparent 70%);
   --radius: 14px;
@@ -31,6 +33,7 @@ html[data-theme="light"] {
   --bg-elev: #f3f5fa;
   --bg-card: #ffffff;
   --bg-card2: #eaeef6;
+  --fig: #4a5876;
   --border: #d8dfeb;
   --text: #1c2434;
   --text-dim: #5c6b85;

@@ -479,16 +479,16 @@
     return ({ chest: 'bench', back: 'row', shoulder: 'ohp', legs: 'squat', arm: 'curl', abs: 'crunch' })[ex.muscle] || 'curl';
   }
   // 描画ヘルパ(viewBox 0 0 200 150、床 y=134)
-  const _FG = 'stroke="var(--text-dim)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"';
-  const _BR = 'stroke="var(--accent)" stroke-width="5" stroke-linecap="round"';
-  const _hd = (x, y) => `<circle cx="${x}" cy="${y}" r="8" fill="var(--text-dim)"/>`;
+  const _FG = 'stroke="var(--fig)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  const _BR = 'stroke="var(--accent)" stroke-width="6" stroke-linecap="round"';
+  const _hd = (x, y) => `<circle cx="${x}" cy="${y}" r="10" fill="var(--fig)"/>`;
   const _ch = (pts) => `<polyline points="${pts}" ${_FG}/>`;                 // 手足の連結
   const _bar = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${_BR}/>` +
     `<rect x="${x1 - 3}" y="${y1 - 9}" width="6" height="18" rx="2" fill="var(--accent)"/>` +
     `<rect x="${x2 - 3}" y="${y2 - 9}" width="6" height="18" rx="2" fill="var(--accent)"/>`;
   const _cable = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${_BR}/>`;
   const _pad = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--accent)"/>`;
-  const _db = (x, y) => `<rect x="${x - 8}" y="${y - 3}" width="16" height="6" rx="3" fill="var(--accent)"/>`; // ダンベル
+  const _db = (x, y) => `<rect x="${x - 9}" y="${y - 4}" width="18" height="8" rx="3" fill="var(--accent)"/>`; // ダンベル
   const _floor = () => `<line x1="14" y1="134" x2="186" y2="134" stroke="var(--border)" stroke-width="2"/>`;
   const _bench = (x, y, w) => `<rect x="${x}" y="${y}" width="${w}" height="7" rx="2" fill="var(--border)"/><line x1="${x + 8}" y1="${y + 7}" x2="${x + 8}" y2="134" stroke="var(--border)" stroke-width="3"/><line x1="${x + w - 8}" y1="${y + 7}" x2="${x + w - 8}" y2="134" stroke="var(--border)" stroke-width="3"/>`;
   const _seat = (x, y) => `<rect x="${x - 16}" y="${y}" width="32" height="8" rx="2" fill="var(--border)"/><rect x="${x + 12}" y="${y - 30}" width="8" height="34" rx="2" fill="var(--border)"/><line x1="${x - 12}" y1="${y + 8}" x2="${x - 12}" y2="134" stroke="var(--border)" stroke-width="3"/>`;
