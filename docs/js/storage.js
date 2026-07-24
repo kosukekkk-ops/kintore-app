@@ -34,7 +34,7 @@ const Store = (() => {
     return Date.now().toString(36) + '-' + seq.toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 90, restAuto: true };
+  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 90, restAuto: true, goalVolume: 5000 };
 
   return {
     uid,

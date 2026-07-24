@@ -83,66 +83,100 @@
     return renderWorkoutHome();
   }
 
+  // 連続トレ日数(今日未実施でも昨日まで続いていれば維持)
+  function computeStreak(done) {
+    const set = new Set(done.map(s => s.date));
+    const d = new Date();
+    if (!set.has(Data.dateKey(d))) d.setDate(d.getDate() - 1);
+    let n = 0;
+    while (set.has(Data.dateKey(d))) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+  // ワークアウト内の1種目が完了か(本番セットが1つ以上あり全て完了)
+  function exDone(we) {
+    const work = we.sets.filter(s => !s.warmup);
+    return work.length > 0 && work.every(s => s.done);
+  }
+  const greetWord = () => { const hh = new Date().getHours(); return hh < 5 ? 'こんばんは' : hh < 11 ? 'おはようございます' : hh < 18 ? 'こんにちは' : 'こんばんは'; };
+
   function renderWorkoutHome() {
     const active = Store.getActiveSession();
     const templates = Store.getTemplates();
     const done = Store.getSessions().filter(s => s.done);
-    const recent = done.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+    const todayK = Data.todayKey();
+    const todayVol = done.filter(s => s.date === todayK).reduce((a, s) => a + Data.sessionVolumeKg(s), 0) + (active ? Data.sessionVolumeKg(active) : 0);
+    const goal = Math.max(500, S().goalVolume || 5000);
+    const pct = Math.min(100, Math.round(todayVol / goal * 100));
+    const streak = computeStreak(done);
+    const dispVol = Data.fmtNum(Data.kgToDisplay(todayVol, unit()));
+    const dispGoal = Data.fmtNum(Data.kgToDisplay(goal, unit()));
 
-    // 負荷量(総ボリューム)を期間で集計。トン表示。
-    const now = new Date();
-    const sinceKey = (days) => { const d = new Date(now); d.setDate(d.getDate() - days + 1); return Data.dateKey(d); };
-    const volSince = (key) => done.filter(s => s.date >= key).reduce((a, s) => a + Data.sessionVolumeKg(s), 0);
-    const vol7 = volSince(sinceKey(7)), vol28 = volSince(sinceKey(28)), volAll = done.reduce((a, s) => a + Data.sessionVolumeKg(s), 0);
-
-    let h = `<div class="hero">`;
-    h += `<div class="home-head"><button class="icon-btn" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button>
-      <div class="ttl">${t('app_title')}</div><div style="width:40px"></div></div>`;
-
+    // メニュー: 進行中はそのセッション、無ければ最新テンプレ、無ければ最近の記録
+    let menu = [], menuDone = 0, menuTotal = 0, ctaLabel, ctaAct;
     if (active) {
-      h += `<div class="card tap" data-act="resume">
-        <div class="row"><div class="lmain">
-          <div class="ltitle">▶ ${t('in_progress')}</div>
-          <div class="lsub">${esc(active.name || Data.fmtDate(active.date))} ・ ${t('n_exercises', { n: active.exercises.length })}</div>
-        </div><div style="font-size:22px">›</div></div></div>`;
-    }
-
-    // ホームのカレンダー
-    h += homeCalendar(done);
-
-    // 合計負荷量カード(車/バス/飛行機の例え)
-    h += `<div class="load-grid">
-      ${loadCard(t('load_7d'), vol7, '🚗', 1.5, 'accent')}
-      ${loadCard(t('load_28d'), vol28, '🚌', 14, '')}
-      ${loadCard(t('load_total'), volAll, '✈️', 200, '')}
-    </div>`;
-
-    // 週別バー
-    h += weeklyBars(done);
-    h += `</div>`; /* /hero */
-
-    // 大きなアクション
-    h += `<div class="big-actions">
-      <button class="act-btn primary" data-act="start-empty"><span class="ai">＋</span>${t('add_today')}</button>
-      <button class="act-btn sub" data-act="rm-calc"><span class="ai">🏋️</span>${t('rm_calc')}</button>
-    </div>`;
-
-    // テンプレート
-    h += `<div class="card"><h2>${t('start_from_tpl')}</h2>`;
-    if (!templates.length) {
-      h += `<p class="muted small">${t('no_tpl_hint')}</p>`;
+      active.exercises.forEach(we => {
+        const ex = Store.exerciseById(we.exerciseId) || { name: '(?)' };
+        const d = exDone(we);
+        const top = we.sets.find(s => !s.warmup) || we.sets[0] || {};
+        const sub = Data.isCardioMuscle((ex.muscle || '')) ? `${Data.fmtNum(top.duration || 0)}分 · ${we.sets.length}set`
+          : (top.weight ? `${disp(top.weight)}${uLab()}×${top.reps || 0} · ${we.sets.length}set` : `${we.sets.length}set`);
+        menu.push({ name: exName(ex), sub, done: d });
+      });
+      menuTotal = menu.length; menuDone = menu.filter(m => m.done).length;
+      ctaLabel = 'セットを記録する'; ctaAct = 'resume';
+    } else if (templates.length) {
+      const tp = templates[0];
+      menu = tp.exercises.map(te => { const ex = Store.exerciseById(te.exerciseId); return { name: ex ? exName(ex) : '(?)', sub: `${te.sets || '-'}set`, done: false, tplId: tp.id }; });
+      menuTotal = menu.length;
+      ctaLabel = `${tp.name} を開始`; ctaAct = 'start-tpl'; var ctaId = tp.id;
     } else {
-      h += templates.map(tp => `<div class="lrow" data-act="start-tpl" data-id="${tp.id}">
-        <div class="lmain"><div class="ltitle">${esc(tp.name)}</div>
-        <div class="lsub">${t('n_exercises', { n: tp.exercises.length })}</div></div>
-        <div style="font-size:20px;color:var(--text-dim)">▶</div></div>`).join('');
+      ctaLabel = 'ワークアウトを開始'; ctaAct = 'start-empty';
     }
-    h += `</div>`;
+    const nextIdx = menu.findIndex(m => !m.done);
 
-    // 最近のワークアウト
-    h += `<div class="card"><h2>${t('recent')}</h2>`;
-    h += recent.length ? recent.map(s => sessionRow(s)).join('') : `<p class="muted small">${t('no_records')}</p>`;
-    h += `</div>`;
+    let h = `<div class="ng-top">${active ? '<span class="ng-rec">● 記録中</span>' : `<button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button>`}</div>`;
+    h += `<div class="greet">${greetWord()}、<b>${esc(active ? (active.name || 'トレーニング') : (menu.length ? (templates[0] ? templates[0].name : '今日') : '今日'))}</b>${active ? ' を記録中' : (menu.length ? ' の日' : ' も頑張りましょう')}</div>`;
+
+    // 進捗リング + 数値
+    h += `<div class="ring-row">
+      <div class="ring" style="background:conic-gradient(var(--accent) 0 ${pct}%, var(--bg-elev) ${pct}% 100%)">
+        <div class="hole"><span class="pctn">${pct}<small>%</small></span><span class="rlab">目標達成</span></div>
+      </div>
+      <div class="ring-side">
+        <div class="big-vol">${dispVol}</div>
+        <div class="big-vol-sub">/ ${dispGoal} ${uLab()}</div>
+        <div class="mini2">
+          <div class="mini"><div class="n" style="color:var(--accent)">${streak}</div><div class="l">連続日</div></div>
+          <div class="mini"><div class="n">${menuTotal ? menuDone + '/' + menuTotal : '—'}</div><div class="l">完了</div></div>
+        </div>
+      </div>
+    </div>`;
+
+    // 今日のメニュー
+    h += `<div class="sec-lbl">${active ? '今日のメニュー' : (menu.length ? 'おすすめメニュー' : 'メニュー')}</div>`;
+    if (menu.length) {
+      h += `<div class="menu-list">` + menu.map((m, i) => {
+        const isNext = i === nextIdx;
+        const act = active ? 'resume' : (m.tplId ? `start-tpl" data-id="${m.tplId}` : 'start-empty');
+        return `<div class="menu-card ${isNext ? 'next' : ''}" data-act="${act}">
+          <div class="dot ${m.done ? 'on' : ''}"></div>
+          <div class="mc-main"><div class="mc-name">${esc(m.name)}</div><div class="mc-sub">${esc(m.sub)}</div></div>
+          ${m.done ? '<span class="mc-check">✓</span>' : (isNext ? '<span class="mc-now">NOW</span>' : '')}
+        </div>`;
+      }).join('') + `</div>`;
+    } else {
+      h += `<div class="menu-list"><div class="menu-card" data-act="start-empty"><div class="dot"></div>
+        <div class="mc-main"><div class="mc-name">最初のワークアウト</div><div class="mc-sub mono">タップして開始</div></div><span class="mc-now">START</span></div></div>`;
+    }
+
+    // 主CTA
+    h += `<button class="cta" data-act="${ctaAct}"${ctaAct === 'start-tpl' ? ` data-id="${ctaId}"` : ''}>${esc(ctaLabel)}</button>`;
+
+    // クイック導線
+    h += `<div class="quick-row">
+      <button class="quick" data-act="start-empty">＋ 空で開始</button>
+      <button class="quick" data-act="rm-calc">RM計算機</button>
+    </div>`;
     return h;
   }
 

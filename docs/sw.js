@@ -3,7 +3,7 @@
  * すべて使えるようにする(データは端末内 localStorage 保存のためそもそも通信不要)。
  * ファイルを追加/削除/リネームしたら必ず ASSETS 一覧と CACHE 版数を更新すること。
  */
-const CACHE = 'kintore-app-v12';
+const CACHE = 'kintore-app-v13';
 const ASSETS = [
   './',
   './index.html',
@@ -15,7 +15,12 @@ const ASSETS = [
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './fonts/sg-500.woff2',
+  './fonts/sg-600.woff2',
+  './fonts/sg-700.woff2',
+  './fonts/jm-500.woff2',
+  './fonts/jm-700.woff2'
 ];
 
 self.addEventListener('install', (e) => {
