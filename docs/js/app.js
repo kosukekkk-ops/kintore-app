@@ -1352,12 +1352,12 @@
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
     const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', light ? '#eef1f6' : '#070a11');
   }
+  // タブはアイコンのみ(文字なし)。言語切替時は aria-label だけ更新する。
   function relabelTabs() {
     const map = { workout: 'tab_record', history: 'tab_history', graph: 'tab_graph', menu: 'tab_menu', condition: 'tab_condition' };
     $$('.tabbar button').forEach(b => {
       const key = map[b.dataset.tab]; if (!key) return;
-      const ico = b.querySelector('.ico').outerHTML;
-      b.innerHTML = ico + t(key);
+      b.setAttribute('aria-label', t(key));
     });
   }
 

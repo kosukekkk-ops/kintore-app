@@ -108,11 +108,12 @@ nav.tabbar {
 }
 nav.tabbar button {
   flex: 1; background: none; border: none; color: var(--text-mute);
-  font-size: 10px; font-weight: 500; display: flex; flex-direction: column; align-items: center;
-  gap: 3px; padding: 8px 0 12px; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px 0 16px; cursor: pointer; font-family: inherit;
 }
-nav.tabbar button .ico { font-size: 20px; line-height: 1; }
-nav.tabbar button.active { color: var(--accent); font-weight: 700; }
+nav.tabbar button svg { width: 27px; height: 27px; display: block; transition: transform .12s, color .12s; }
+nav.tabbar button.active { color: var(--text); }
+nav.tabbar button.active svg { transform: scale(1.06); }
 
 /* ---------- cards & common ---------- */
 .card {
