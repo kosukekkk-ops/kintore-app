@@ -323,6 +323,7 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 /* 種目情報: 動作イラスト＋筋肉マップ */
 .posefig { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 10px; }
 .posefig svg { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto; }
+.posefig .pose-img { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; border-radius: 10px; }
 .bodymap { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
 .bodymap svg { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; }
 /* 外部リンクをボタン風に */

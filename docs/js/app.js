@@ -712,7 +712,9 @@
     showSheet(`<h2>${esc(exName(ex))}</h2>
       <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
       <div class="sec-title">${t('pose_label')}</div>
-      <div class="posefig">${poseSvg(pose)}</div>
+      <div class="posefig"><img class="pose-img" src="exercise-images/${pose}.png" alt="${esc(exName(ex))}" loading="lazy"
+        onerror="if(this.src.indexOf('.png')>-1){this.src=this.src.replace('.png','.jpg')}else{this.style.display='none';this.nextElementSibling.style.display='block'}">
+        <div class="pose-svg" style="display:none">${poseSvg(pose)}</div></div>
       <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
       <div class="bodymap">${bodyMapSvg(regions)}</div>
       ${tips ? `<div class="sec-title">${t('points_label')}</div><ul class="tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
