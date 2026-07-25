@@ -701,6 +701,17 @@
     run: ['無理のないペースから始める', '着地は体の真下を意識', '呼吸を整えて一定ペースを保つ']
   };
 
+  // 動作イメージの画像フォールバック: 種目名.png → ポーズ.png → ポーズ.jpg → 自作SVG
+  window.__imgfb = function (img) {
+    const p = img.dataset.pose || '';
+    const step = (+img.dataset.step || 0) + 1;
+    img.dataset.step = step;
+    if (step === 1 && p) { img.src = 'exercise-images/' + p + '.png'; return; }
+    if (step === 2 && p) { img.src = 'exercise-images/' + p + '.jpg'; return; }
+    img.onerror = null; img.style.display = 'none';
+    const svg = img.nextElementSibling; if (svg) svg.style.display = 'block';
+  };
+
   function openExerciseInfo(exId) {
     const ex = Store.exerciseById(exId); if (!ex) return;
     const pose = exercisePose(ex);
@@ -712,8 +723,7 @@
     showSheet(`<h2>${esc(exName(ex))}</h2>
       <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
       <div class="sec-title">${t('pose_label')}</div>
-      <div class="posefig"><img class="pose-img" src="exercise-images/${pose}.png" alt="${esc(exName(ex))}" loading="lazy"
-        onerror="if(this.src.indexOf('.png')>-1){this.src=this.src.replace('.png','.jpg')}else{this.style.display='none';this.nextElementSibling.style.display='block'}">
+      <div class="posefig"><img class="pose-img" src="exercise-images/${encodeURIComponent(ex.name)}.png" data-pose="${pose}" alt="${esc(exName(ex))}" loading="lazy" onerror="window.__imgfb(this)">
         <div class="pose-svg" style="display:none">${poseSvg(pose)}</div></div>
       <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
       <div class="bodymap">${bodyMapSvg(regions)}</div>

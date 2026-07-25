@@ -10,3 +10,7 @@ npm-debug.log*
 # 一時ファイル
 *.tmp
 _check-*.png
+
+# 種目画像の元グリッド(大容量・未使用)はコミットしない。切り出し済みの個別pngのみ公開する
+docs/exercise-images/ChatGPT*
+docs/exercise-images/_*
