@@ -3,7 +3,7 @@
  * すべて使えるようにする(データは端末内 localStorage 保存のためそもそも通信不要)。
  * ファイルを追加/削除/リネームしたら必ず ASSETS 一覧と CACHE 版数を更新すること。
  */
-const CACHE = 'kintore-app-v20';
+const CACHE = 'kintore-app-v21';
 const ASSETS = [
   './',
   './index.html',
@@ -36,15 +36,26 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin) return;
-  // 同一オリジンは cache-first、無ければネットワーク取得して追記
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok && e.request.method === 'GET') {
+  if (url.origin !== self.location.origin || e.request.method !== 'GET') return;
+  const p = url.pathname;
+  const isShell = p.endsWith('/') || p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.webmanifest');
+  if (isShell) {
+    // アプリ本体は network-first: オンライン時は常に最新を取得(＝更新が即反映)。
+    // 取得できたらキャッシュを更新し、オフライン時のみキャッシュ/indexへフォールバック。
+    e.respondWith(
+      fetch(e.request).then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => caches.match('./index.html')))
-  );
+        return res;
+      }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
+    );
+  } else {
+    // 画像・フォントなどは cache-first(高速・オフライン対応)、無ければ取得して追記。
+    e.respondWith(
+      caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+        return res;
+      }))
+    );
+  }
 });
