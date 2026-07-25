@@ -724,8 +724,12 @@
     const tips = (Data.lang() === 'ja' && POSE_TIPS[pose]) ? POSE_TIPS[pose] : null;
     const qImg = encodeURIComponent(ex.name + ' 筋トレ マシン');
     const qVid = encodeURIComponent(ex.name + ' やり方');
-    showSheet(`<h2>${esc(exName(ex))}</h2>
+    // 種目選択(ピッカー)から開いた場合は「追加して戻る」を出す
+    const fromPicker = !!(picker.onPick && $('#pick-list'));
+    showSheet(`<div class="info-head"><button class="back-btn" data-act="info-close">‹ ${fromPicker ? '種目選択へ戻る' : '戻る'}</button></div>
+      <h2>${esc(exName(ex))}</h2>
       <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
+      ${fromPicker ? `<button class="btn mb" data-act="info-add" data-id="${ex.id}">＋ この種目を追加して戻る</button>` : ''}
       <div class="sec-title">${t('pose_label')}</div>
       <div class="posefig"><img class="pose-img" src="exercise-images/${encodeURIComponent(ex.name)}.png" data-pose="${pose}" alt="${esc(exName(ex))}" loading="lazy" onerror="window.__imgfb(this)">
         <div class="pose-svg" style="display:none">${poseSvg(pose)}</div></div>
@@ -1181,6 +1185,8 @@
     'pick-filter': (d) => { picker.muscle = d.key; refreshPicker(); },
     'do-pick': (d) => { if (picker.onPick) picker.onPick(d.id); },
     'ex-info': (d) => openExerciseInfo(d.id),
+    'info-close': () => { const o = $$('.sheet-overlay'); if (o.length) o[o.length - 1].remove(); },
+    'info-add': (d) => { if (picker.onPick) picker.onPick(d.id); },
     'new-exercise': () => openNewExercise(),
     'newex-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); newExMuscle = d.key; },
     'save-newex': () => {
