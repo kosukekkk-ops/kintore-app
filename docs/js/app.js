@@ -42,6 +42,8 @@
     return ov;
   }
   function closeSheet() { $$('.sheet-overlay').forEach(o => o.remove()); }
+  // シート上部の戻る/閉じる。背景タップに気付かない人が行き詰まらないよう全シートに置く。
+  const sheetHead = (act, label) => `<div class="info-head"><button class="back-btn" data-act="${act}">‹ ${label}</button></div>`;
 
   /* ============ ルーティング ============ */
   const state = {
@@ -97,7 +99,7 @@
     const work = we.sets.filter(s => !s.warmup);
     return work.length > 0 && work.every(s => s.done);
   }
-  const greetWord = () => { const hh = new Date().getHours(); return hh < 5 ? 'こんばんは' : hh < 11 ? 'おはようございます' : hh < 18 ? 'こんにちは' : 'こんばんは'; };
+  const greetWord = () => { const hh = new Date().getHours(); return hh < 5 ? t('greet_night') : hh < 11 ? t('greet_morning') : hh < 18 ? t('greet_day') : t('greet_night'); };
 
   function renderWorkoutHome() {
     const active = Store.getActiveSession();
@@ -118,42 +120,46 @@
         const ex = Store.exerciseById(we.exerciseId) || { name: '(?)' };
         const d = exDone(we);
         const top = we.sets.find(s => !s.warmup) || we.sets[0] || {};
-        const sub = Data.isCardioMuscle((ex.muscle || '')) ? `${Data.fmtNum(top.duration || 0)}分 · ${we.sets.length}set`
+        const sub = Data.isCardioMuscle((ex.muscle || '')) ? `${Data.fmtNum(top.duration || 0)}${t('unit_min')} · ${we.sets.length}set`
           : (top.weight ? `${disp(top.weight)}${uLab()}×${top.reps || 0} · ${we.sets.length}set` : `${we.sets.length}set`);
         menu.push({ name: exName(ex), sub, done: d });
       });
       menuTotal = menu.length; menuDone = menu.filter(m => m.done).length;
-      ctaLabel = 'セットを記録する'; ctaAct = 'resume';
+      ctaLabel = t('cta_log_sets'); ctaAct = 'resume';
     } else if (templates.length) {
       const tp = templates[0];
       menu = tp.exercises.map(te => { const ex = Store.exerciseById(te.exerciseId); return { name: ex ? exName(ex) : '(?)', sub: `${te.sets || '-'}set`, done: false, tplId: tp.id }; });
       menuTotal = menu.length;
-      ctaLabel = `${tp.name} を開始`; ctaAct = 'start-tpl'; var ctaId = tp.id;
+      ctaLabel = t('cta_start_tpl', { name: tp.name }); ctaAct = 'start-tpl'; var ctaId = tp.id;
     } else {
-      ctaLabel = 'ワークアウトを開始'; ctaAct = 'start-empty';
+      ctaLabel = t('cta_start_workout'); ctaAct = 'start-empty';
     }
     const nextIdx = menu.findIndex(m => !m.done);
 
-    let h = `<div class="ng-top">${active ? '<span class="ng-rec">● 記録中</span>' : `<button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button>`}</div>`;
-    h += `<div class="greet">${greetWord()}、<b>${esc(active ? (active.name || 'トレーニング') : (menu.length ? (templates[0] ? templates[0].name : '今日') : '今日'))}</b>${active ? ' を記録中' : (menu.length ? ' の日' : ' も頑張りましょう')}</div>`;
+    // 歯車は記録中でも常に出す(設定へ到達できなくなるのを防ぐ)
+    let h = `<div class="ng-top">${active ? `<span class="ng-rec">● ${t('rec_badge')}</span>` : ''}<div class="spacer"></div>
+      <button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button></div>`;
+    const subject = active ? (active.name || t('home_training')) : (menu.length && templates[0] ? templates[0].name : t('home_today'));
+    const suffix = active ? t('suf_recording') : (menu.length ? t('suf_dayof') : t('suf_cheer'));
+    h += `<div class="greet">${greetWord()}${t('greet_sep')}<b>${esc(subject)}</b>${suffix}</div>`;
 
     // 進捗リング + 数値
     h += `<div class="ring-row">
       <div class="ring" style="background:conic-gradient(var(--accent) 0 ${pct}%, var(--bg-elev) ${pct}% 100%)">
-        <div class="hole"><span class="pctn">${pct}<small>%</small></span><span class="rlab">目標達成</span></div>
+        <div class="hole"><span class="pctn">${pct}<small>%</small></span><span class="rlab">${t('ring_goal')}</span></div>
       </div>
       <div class="ring-side">
         <div class="big-vol">${dispVol}</div>
         <div class="big-vol-sub">/ ${dispGoal} ${uLab()}</div>
         <div class="mini2">
-          <div class="mini"><div class="n" style="color:var(--accent)">${streak}</div><div class="l">連続日</div></div>
-          <div class="mini"><div class="n">${menuTotal ? menuDone + '/' + menuTotal : '—'}</div><div class="l">完了</div></div>
+          <div class="mini"><div class="n" style="color:var(--accent)">${streak}</div><div class="l">${t('m_streak')}</div></div>
+          <div class="mini"><div class="n">${menuTotal ? menuDone + '/' + menuTotal : '—'}</div><div class="l">${t('m_done')}</div></div>
         </div>
       </div>
     </div>`;
 
     // 今日のメニュー
-    h += `<div class="sec-lbl">${active ? '今日のメニュー' : (menu.length ? 'おすすめメニュー' : 'メニュー')}</div>`;
+    h += `<div class="sec-lbl">${active ? t('sec_today_menu') : (menu.length ? t('sec_recommend') : t('sec_menu'))}</div>`;
     if (menu.length) {
       h += `<div class="menu-list">` + menu.map((m, i) => {
         const isNext = i === nextIdx;
@@ -166,7 +172,7 @@
       }).join('') + `</div>`;
     } else {
       h += `<div class="menu-list"><div class="menu-card" data-act="start-empty"><div class="dot"></div>
-        <div class="mc-main"><div class="mc-name">最初のワークアウト</div><div class="mc-sub mono">タップして開始</div></div><span class="mc-now">START</span></div></div>`;
+        <div class="mc-main"><div class="mc-name">${t('first_workout')}</div><div class="mc-sub mono">${t('tap_to_start')}</div></div><span class="mc-now">START</span></div></div>`;
     }
 
     // 主CTA
@@ -174,8 +180,8 @@
 
     // クイック導線
     h += `<div class="quick-row">
-      <button class="quick" data-act="start-empty">＋ 空で開始</button>
-      <button class="quick" data-act="rm-calc">RM計算機</button>
+      <button class="quick" data-act="start-empty">${t('q_empty_start')}</button>
+      <button class="quick" data-act="rm-calc">${t('rm_calc')}</button>
     </div>`;
     return h;
   }
@@ -264,7 +270,7 @@
         <div class="rm-1rm"><span class="n">${disp(oneRm)}</span><span class="u"> ${uLab()}</span></div>
         <table class="rm-table"><tbody>${rows}</tbody></table></div>`;
     }
-    return `<h2>${t('rm_title')}</h2>
+    return `${sheetHead('sheet-close', t('close'))}<h2>${t('rm_title')}</h2>
       <div class="row">
         <label class="field" style="flex:1"><span class="lab">${t('rm_weight', { u: uLab() })}</span><input inputmode="decimal" data-in="rm-weight" value="${esc(rmState.weight)}" placeholder="60"></label>
         <label class="field" style="flex:1"><span class="lab">${t('rm_reps')}</span><input inputmode="numeric" data-in="rm-reps" value="${esc(rmState.reps)}" placeholder="8"></label>
@@ -372,6 +378,15 @@
   }
 
   function saveCur() { if (cur) Store.saveSession(cur); }
+
+  // 記録画面を閉じる。編集中の状態(cur/screen)も必ず畳んでおく。
+  // 残したままだと記録タブへ戻った時に編集画面が復活し、戻る操作が一周してしまう。
+  function closeSession() {
+    saveCur();
+    const back = state.wo.backTo;
+    cur = null; state.wo.screen = 'home'; state.wo.backTo = null;
+    if (back === 'history') switchTab('history'); else render();
+  }
 
   // 種目を削除。記録済みのデータがある場合のみ確認を挟み、空(＝入力ミス)なら即削除。
   // 削除後は render() で総重量(kg)・セット数・グラフ等がすべて再計算される。
@@ -822,7 +837,7 @@
     $('.sheet', ov).innerHTML = `<div class="grab"></div>` + pickerInner();
   }
   function openNewExercise() {
-    showSheet(`<h2>${t('custom_title')}</h2>
+    showSheet(`${sheetHead('newex-back', t('back'))}<h2>${t('custom_title')}</h2>
       <label class="field"><span class="lab">${t('ex_name')}</span><input data-in="newexname" placeholder="${t('ex_name_ph')}"></label>
       <label class="field"><span class="lab">${t('part')}</span>
         <div class="chips">${Data.MUSCLES.map((m, i) => `<div class="chip ${i === 0 ? 'active' : ''}" data-act="newex-muscle" data-key="${m.key}">${Data.muscleName(m.key)}</div>`).join('')}</div>
@@ -885,6 +900,20 @@
       h += `<div class="cal-cell ${cls}" ${has ? `data-act="cal-day" data-date="${key}"` : ''}>${d}${marks}</div>`;
     }
     h += `</div></div>`;
+
+    // 未完了(進行中)のワークアウトも必ず一覧に出す。完了だけを表示していると、
+    // 保存し忘れたセッションがどこからも開けなくなるため。
+    const unfinished = Store.getSessions().filter(s => !s.done && s.exercises.length)
+      .sort((a, b) => (b.startedAt || b.date).localeCompare(a.startedAt || a.date));
+    if (unfinished.length) {
+      h += `<div class="card"><h2>${t('unfinished_title')}</h2>
+        <p class="muted small" style="margin-bottom:4px">${t('unfinished_hint')}</p>`;
+      h += unfinished.map(s => `<div class="lrow" data-act="resume-session" data-id="${s.id}">
+        <div class="lmain"><div class="ltitle">${esc(s.name || Data.fmtDate(s.date))} <span class="etag">${t('badge_unfinished')}</span></div>
+        <div class="lsub">${Data.fmtDate(s.date)} ・ ${t('n_exercises', { n: s.exercises.length })} ・ ${t('n_sets', { n: Data.sessionSetCount(s) })}</div></div>
+        <div class="lval">${Data.fmtNum(Data.kgToDisplay(Data.sessionVolumeKg(s), unit()))}${uLab()}</div></div>`).join('');
+      h += `</div>`;
+    }
 
     const sorted = sessions.slice().sort((a, b) => b.date.localeCompare(a.date) || (b.startedAt || '').localeCompare(a.startedAt || ''));
     h += `<div class="card"><h2>${t('all_records', { n: sorted.length })}</h2>`;
@@ -1134,6 +1163,10 @@
       <div class="seg"><button class="${theme === 'system' ? 'active' : ''}" data-act="set-theme" data-v="system">${t('th_auto')}</button>
       <button class="${theme === 'light' ? 'active' : ''}" data-act="set-theme" data-v="light">${t('th_light')}</button>
       <button class="${theme === 'dark' ? 'active' : ''}" data-act="set-theme" data-v="dark">${t('th_dark')}</button></div></div>`;
+    h += `<div class="card"><h2>${t('s_goal')}</h2>
+      <label class="field"><span class="lab">${t('goal_volume', { u: uLab() })}</span>
+        <input inputmode="numeric" data-in="goal-volume" value="${Data.fmtNum(Data.kgToDisplay(Math.max(500, s.goalVolume || 5000), s.unit))}"></label>
+      <p class="muted small">${t('goal_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_rest')}</h2>
       <label class="field"><span class="lab">${t('rest_default')}</span><input inputmode="numeric" data-in="rest-default" value="${s.restDefault}"></label>
       <div class="row"><span class="spacer">${t('rest_auto')}</span>
@@ -1159,14 +1192,19 @@
     'go-history': () => switchTab('history'),
     'rm-calc': () => openRmCalc(),
 
-    'start-empty': () => {
-      cur = { id: Store.uid(), date: Data.todayKey(), name: '', note: '', startedAt: new Date().toISOString(), finishedAt: null, done: false, exercises: [] };
-      Store.saveSession(cur); state.wo.screen = 'session'; state.wo.backTo = null; render();
-    },
+    'start-empty': () => startNew(null),
     'resume': () => { cur = Store.getActiveSession(); state.wo.screen = 'session'; state.wo.backTo = null; render(); },
-    'start-tpl': (d) => startFromTemplate(d.id),
+    'start-tpl': (d) => startNew(d.id),
+    'active-resume': () => { closeSheet(); cur = Store.getActiveSession(); if (!cur) { render(); return; } state.wo.screen = 'session'; state.wo.backTo = null; switchTab('workout'); },
+    'active-finish-new': () => {
+      const a = Store.getActiveSession();
+      if (a) { a.done = true; a.finishedAt = new Date().toISOString(); Store.saveSession(a); }
+      closeSheet(); doStartNew(pendingStartTpl);
+    },
+    'active-discard-new': () => { const a = Store.getActiveSession(); if (a) Store.deleteSession(a.id); closeSheet(); doStartNew(pendingStartTpl); },
+    'resume-session': (d) => { const s = Store.getSession(d.id); if (!s) return; cur = s; state.wo.screen = 'session'; state.wo.backTo = 'history'; switchTab('workout'); },
     'open-session': (d) => { state.hist.screen = 'detail'; state.hist.sessionId = d.id; switchTab('history'); },
-    'close-session': () => { saveCur(); if (state.wo.backTo === 'history') switchTab('history'); else { state.wo.screen = 'home'; render(); } },
+    'close-session': () => closeSession(),
     'pick-ex': () => openPicker((exId) => { addExerciseToSession(exId); closeSheet(); render(); }),
     'add-set': (d) => { const we = cur.exercises[+d.ex]; we.sets.push(newSet(we.exerciseId, we.sets[we.sets.length - 1])); saveCur(); render(); },
     'add-warm': (d) => { const we = cur.exercises[+d.ex]; we.sets.unshift({ id: Store.uid(), weight: 0, reps: 0, warmup: true, done: false }); saveCur(); render(); },
@@ -1203,6 +1241,8 @@
     'info-close': () => { const o = $$('.sheet-overlay'); if (o.length) o[o.length - 1].remove(); },
     'info-add': (d) => { if (picker.onPick) picker.onPick(d.id); },
     'new-exercise': () => openNewExercise(),
+    // カスタム種目追加は種目ピッカーを置き換えて開くので、戻る時はピッカーを復帰させる
+    'newex-back': () => { if (picker.onPick) openPicker(picker.onPick); else closeSheet(); },
     'newex-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); newExMuscle = d.key; },
     'save-newex': () => {
       const name = ($('[data-in="newexname"]') || {}).value || '';
@@ -1230,7 +1270,7 @@
 
     'new-template': () => { state.menu.draft = { id: null, name: '', description: '', exercises: [] }; state.menu.screen = 'edit'; render(); },
     'edit-template': (d) => { state.menu.draft = JSON.parse(JSON.stringify(Store.getTemplate(d.id))); state.menu.screen = 'edit'; render(); },
-    'menu-back': () => { state.menu.screen = 'list'; render(); },
+    'menu-back': () => leaveTemplateEdit(),
     'tpl-add-ex': () => { pendingTplPick = true; openPicker((exId) => { addTplExercise(exId); closeSheet(); render(); }); },
     'tpl-del-ex': (d) => { state.menu.draft.exercises.splice(+d.i, 1); render(); },
     'tpl-save': () => {
@@ -1287,9 +1327,35 @@
     if (k === 'tpl-duration') { state.menu.draft.exercises[+el.dataset.i].duration = parseFloat(v) || 0; return; }
     if (k === 'tpl-distance') { state.menu.draft.exercises[+el.dataset.i].distance = parseFloat(v) || 0; return; }
     if (k === 'rest-default') { Store.setSettings({ restDefault: Math.max(5, parseInt(v, 10) || 90) }); return; }
+    if (k === 'goal-volume') { Store.setSettings({ goalVolume: Math.max(500, Data.displayToKg(v, unit()) || 5000) }); return; }
   }
 
   /* ---- サブ処理 ---- */
+  // 進行中のワークアウトを残したまま新規を始めると、そのセッションは
+  // getActiveSession() から外れ履歴(完了のみ表示)にも出ず"迷子"になる。
+  // そのため記録済みの進行中がある場合は必ず行き先を選ばせる。
+  let pendingStartTpl = null;
+  function startNew(tplId) {
+    const a = Store.getActiveSession();
+    if (a && a.exercises.length) {
+      pendingStartTpl = tplId || null;
+      showSheet(`<h2>${t('active_exists_title')}</h2>
+        <p class="mb">${esc(t('active_exists_msg', { name: a.name || Data.fmtDate(a.date), n: a.exercises.length }))}</p>
+        <button class="btn mb" data-act="active-resume">${t('active_resume')}</button>
+        <button class="btn secondary mb" data-act="active-finish-new">${t('active_finish_new')}</button>
+        <button class="btn danger mb" data-act="active-discard-new">${t('active_discard_new')}</button>
+        <button class="btn secondary" data-act="sheet-close">${t('cancel')}</button>`);
+      return;
+    }
+    if (a) Store.deleteSession(a.id); // 空のまま放置された進行中は掃除して作り直す
+    doStartNew(tplId);
+  }
+  function doStartNew(tplId) {
+    pendingStartTpl = null;
+    if (tplId) { startFromTemplate(tplId); return; }
+    cur = { id: Store.uid(), date: Data.todayKey(), name: '', note: '', startedAt: new Date().toISOString(), finishedAt: null, done: false, exercises: [] };
+    Store.saveSession(cur); state.wo.screen = 'session'; state.wo.backTo = null; switchTab('workout');
+  }
   function startFromTemplate(id) {
     const tp = Store.getTemplate(id); if (!tp) return;
     const session = { id: Store.uid(), date: Data.todayKey(), name: tp.name, note: '', startedAt: new Date().toISOString(), finishedAt: null, done: false, exercises: [] };
@@ -1307,6 +1373,14 @@
     state.wo.screen = 'session'; state.wo.backTo = null;
     switchTab('workout');
   }
+  // テンプレ編集を離れる。未保存の内容を黙って捨てないよう確認を挟む。
+  function leaveTemplateEdit() {
+    const d = state.menu.draft;
+    const saved = d && d.id ? Store.getTemplate(d.id) : null;
+    const dirty = d && (saved ? JSON.stringify(saved) !== JSON.stringify(d) : (d.name.trim() || d.exercises.length));
+    const go = () => { state.menu.draft = null; state.menu.screen = 'list'; closeSheet(); render(); };
+    if (dirty) confirmSheet(t('tpl_unsaved'), go); else go();
+  }
   function addTplExercise(exId) {
     const entry = isCardio(exId) ? { exerciseId: exId, duration: 30, distance: 5 } : { exerciseId: exId, sets: 3, reps: 10, weight: null };
     state.menu.draft.exercises.push(entry);
@@ -1316,7 +1390,7 @@
     exNoteTargetIndex = ei;
     const we = cur.exercises[ei];
     const ex = Store.exerciseById(we.exerciseId) || { name: '' };
-    showSheet(`<h2>${esc(exName(ex))}</h2>
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${esc(exName(ex))}</h2>
       <button class="btn secondary mb" data-act="ex-info" data-id="${we.exerciseId}">${t('about_ex')}</button>
       <label class="field"><span class="lab">${t('ex_note')}</span><textarea id="exnote">${esc(we.note || '')}</textarea></label>
       <button class="btn mb" data-act="exnote-save">${t('save_note')}</button>
@@ -1344,7 +1418,7 @@
   }
   function openDetail(id) { state.hist.screen = 'detail'; state.hist.sessionId = id; switchTab('history'); }
   function openDayList(date, list) {
-    showSheet(`<h2>${Data.fmtDate(date)}</h2>${list.map(s => `<div class="pick-row" data-act="day-open" data-id="${s.id}"><span class="pname">${esc(s.name || t('h_record'))}</span><span class="muted small">${t('n_exercises', { n: s.exercises.length })}</span></div>`).join('')}`);
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${Data.fmtDate(date)}</h2>${list.map(s => `<div class="pick-row" data-act="day-open" data-id="${s.id}"><span class="pname">${esc(s.name || t('h_record'))}</span><span class="muted small">${t('n_exercises', { n: s.exercises.length })}</span></div>`).join('')}`);
   }
   function confirmSheet(msg, onOk) {
     showSheet(`<h2>${t('confirm')}</h2><p class="mb">${esc(msg)}</p>
@@ -1398,6 +1472,21 @@
     });
   }
 
+  /* ---- 端末の戻る操作(Androidの戻るボタン/戻るジェスチャ) ----
+   * 何もしないとシートを開いていてもアプリ自体が終了してしまうため、
+   * 「シート → サブ画面 → 記録タブ」の順に画面内を1段ずつ戻す。 */
+  function goBackOne() {
+    const sheets = $$('.sheet-overlay');
+    if (sheets.length) { sheets[sheets.length - 1].remove(); return true; }
+    if (state.tab === 'workout' && state.wo.screen === 'session') { closeSession(); return true; }
+    if (state.tab === 'history' && state.hist.screen === 'detail') { state.hist.screen = 'list'; render(); return true; }
+    if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }
+    if (state.tab === 'condition' && state.cond.screen === 'edit') { state.cond.screen = 'list'; render(); return true; }
+    if (state.tab !== 'workout') { switchTab('workout'); return true; }
+    return false; // ホーム最上位。ここでの戻るはアプリ側では扱わない
+  }
+  function pushBackTrap() { try { history.pushState({ kt: 1 }, ''); } catch (e) { /* 非対応環境は無視 */ } }
+
   /* ============ 起動 ============ */
   function boot() {
     Store.ensureSeed();
@@ -1407,6 +1496,9 @@
     document.body.addEventListener('input', onInput);
     $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
     matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (Store.getTheme() === 'system') applyTheme(); });
+    // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
+    pushBackTrap();
+    window.addEventListener('popstate', () => { if (goBackOne()) pushBackTrap(); });
     render();
     const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
     if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !isLocal) {
