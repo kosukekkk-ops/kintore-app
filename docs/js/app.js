@@ -463,8 +463,8 @@
     s += silhouette(F) + silhouette(B);
     frontKeys.forEach(k => { if (regions.has(k)) s += frontShape(k, F); });
     backKeys.forEach(k => { if (regions.has(k)) s += backShape(k, B); });
-    s += `<text x="${F}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('front')}</text>`;
-    s += `<text x="${B}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('back')}</text>`;
+    s += `<text x="${F}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('bm_front')}</text>`;
+    s += `<text x="${B}" y="252" text-anchor="middle" font-size="12" fill="var(--text-dim)">${t('bm_back')}</text>`;
     s += `</svg>`;
     return s;
   }
@@ -748,7 +748,8 @@
   }
   function pickerInner() {
     const chips = [{ key: 'all', label: t('all') }].concat(Data.MUSCLES.map(m => ({ key: m.key, label: Data.muscleName(m.key) })));
-    return `<h2>${t('pick_title')}</h2>
+    return `<div class="info-head"><button class="back-btn" data-act="sheet-close">‹ ${t('back')}</button></div>
+      <h2>${t('pick_title')}</h2>
       <input data-in="pickq" placeholder="${t('search_ph')}" value="${esc(picker.q)}">
       <div class="chips scroll mt">${chips.map(c => `<div class="chip ${picker.muscle === c.key ? 'active' : ''}" data-act="pick-filter" data-key="${c.key}">${esc(c.label)}</div>`).join('')}</div>
       <div id="pick-list">${filteredPickList()}</div>
