@@ -472,6 +472,10 @@
   // 種目を動作パターン(ポーズ)に対応づける。順序=判定の優先度。
   function exercisePose(ex) {
     const n = ex.name;
+    // 肩プレス系を先に判定(「スミスマシンショルダープレス」がスクワット判定に誤爆しないように)
+    if (/ショルダープレス/.test(n)) return 'ohp';
+    if (/フェイスプル/.test(n)) return 'reardelt';
+    if (/アップライトロー/.test(n)) return 'lateral';
     // 脚(先に判定して「カール/エクステンション」の誤爆を防ぐ)
     if (/レッグプレス/.test(n)) return 'legpress';
     if (/レッグエクステンション/.test(n)) return 'legext';

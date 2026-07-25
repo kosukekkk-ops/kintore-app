@@ -124,9 +124,17 @@ const Store = (() => {
       const stored = this.getSettings().seedVersion || 1;
       if (stored < seedVer) {
         const existingNames = new Set(this.getExercises().map(e => e.name));
-        const list = this.getExercises();
+        let list = this.getExercises();
         let order = list.length;
         this._seedList().forEach(e => { if (!existingNames.has(e.name)) { e.order = order++; list.push(e); } });
+        // 廃止した初期種目を削除(custom でなく、どのセッション/テンプレでも未使用のもののみ)
+        const dep = (typeof Data !== 'undefined' && Data.DEPRECATED_EXERCISES) || [];
+        if (dep.length) {
+          const used = new Set();
+          this.getSessions().forEach(s => (s.exercises || []).forEach(we => used.add(we.exerciseId)));
+          this.getTemplates().forEach(t => (t.exercises || []).forEach(te => used.add(te.exerciseId)));
+          list = list.filter(e => !(dep.includes(e.name) && !e.custom && !used.has(e.id)));
+        }
         this.setExercises(list);
         this.setSettings({ seedVersion: seedVer });
       }

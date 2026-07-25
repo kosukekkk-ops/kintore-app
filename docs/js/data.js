@@ -25,7 +25,9 @@ const Data = (() => {
   const SUB_ORDER = ['大腿四頭筋', 'ハムストリングス', '臀部', '内転・外転', 'ふくらはぎ', '上腕二頭筋', '上腕三頭筋'];
 
   /* ---------- 初期種目。muscle=部位, sub=サブ部位(任意), equip=器具, en=英語名(任意) ---------- */
-  const SEED_VERSION = 2; // これを上げると既存ユーザーにも不足分の初期種目が追加される
+  const SEED_VERSION = 3; // これを上げると既存ユーザーにも不足分の初期種目が追加される
+  // 廃止した初期種目(未使用なら移行時に削除)。肩を10種に拡張した際の統合対象。
+  const DEPRECATED_EXERCISES = ['アイソラテラルショルダープレス', 'リアデルトフライ'];
   const SEED_EXERCISES = [
     // 胸
     { name: 'ベンチプレス', en: 'Bench Press', muscle: 'chest', equip: 'フリー' },
@@ -61,11 +63,16 @@ const Data = (() => {
     { name: 'ハンマーストレングス ローロー', muscle: 'back', equip: 'マシン' },
     { name: 'ハンマーストレングス DYロー', muscle: 'back', equip: 'マシン' },
     // 肩
-    { name: 'ショルダープレス', en: 'Shoulder Press', muscle: 'shoulder', equip: 'マシン' },
-    { name: 'アイソラテラルショルダープレス', muscle: 'shoulder', equip: 'マシン' },
     { name: 'サイドレイズ', en: 'Side Raise', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'ショルダープレス', en: 'Shoulder Press', muscle: 'shoulder', equip: 'マシン' },
+    { name: 'インクラインショルダープレス', muscle: 'shoulder', equip: 'フリー' },
     { name: 'フロントレイズ', en: 'Front Raise', muscle: 'shoulder', equip: 'フリー' },
-    { name: 'リアデルトフライ', en: 'Rear Delt Fly', muscle: 'shoulder', equip: 'マシン' },
+    { name: 'リアレイズ', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'スミスマシンショルダープレス', muscle: 'shoulder', equip: 'スミス' },
+    { name: 'ベントオーバーリアレイズ', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'アップライトロー', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'フェイスプル', muscle: 'shoulder', equip: 'ケーブル' },
+    { name: 'シュラッグ', muscle: 'shoulder', equip: 'フリー' },
     // 腕
     { name: 'アームカール', muscle: 'arm', sub: '上腕二頭筋', equip: 'マシン' },
     { name: 'バーベルカール', en: 'Barbell Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'フリー' },
@@ -280,7 +287,7 @@ const Data = (() => {
   }
 
   return {
-    MUSCLES, muscleMap, muscleName, isCardioMuscle, SEED_EXERCISES, SEED_VERSION, SUB_ORDER,
+    MUSCLES, muscleMap, muscleName, isCardioMuscle, SEED_EXERCISES, SEED_VERSION, SUB_ORDER, DEPRECATED_EXERCISES,
     KG_TO_LB, kgToDisplay, displayToKg, unitLabel, fmtNum,
     sessionVolumeKg, sessionSetCount, estimate1RM,
     dateKey, todayKey, fmtDate, fmtDateShort, fmtMonthYear, fmtClock, dow, DOW_JA,
