@@ -357,6 +357,7 @@
       <div class="ex-head">
         <span class="name">${esc(exName(ex))}</span>
         ${ex.muscle ? muscleTag(ex.muscle) : ''}
+        <button class="ex-del" data-act="ex-del" data-ex="${ei}" aria-label="${t('remove_ex')}" title="${t('remove_ex')}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
         <button class="kebab" data-act="ex-menu" data-ex="${ei}" aria-label="menu">⋯</button>
       </div>
       <table class="set-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
@@ -371,6 +372,18 @@
   }
 
   function saveCur() { if (cur) Store.saveSession(cur); }
+
+  // 種目を削除。記録済みのデータがある場合のみ確認を挟み、空(＝入力ミス)なら即削除。
+  // 削除後は render() で総重量(kg)・セット数・グラフ等がすべて再計算される。
+  function removeExercise(ei) {
+    if (!cur || !cur.exercises[ei]) return;
+    const we = cur.exercises[ei];
+    const ex = Store.exerciseById(we.exerciseId) || { name: '' };
+    const hasData = (we.sets || []).some(s => s.done || s.weight || s.reps || s.duration || s.distance);
+    const doDel = () => { cur.exercises.splice(ei, 1); saveCur(); closeSheet(); render(); toast(t('ex_removed')); };
+    if (hasData) confirmSheet(t('ex_del_confirm', { name: exName(ex) }), doDel);
+    else doDel();
+  }
 
   // 直近に同じ種目を行ったときの代表セットを引き継ぎ用に取得(筋トレ=最大重量, 有酸素=最長距離)
   function lastPerformance(exId) {
@@ -1168,7 +1181,8 @@
     'exnote-save': () => saveExNote(),
     'ex-up': (d) => { const i = +d.ex; if (i > 0) { const a = cur.exercises; [a[i - 1], a[i]] = [a[i], a[i - 1]]; saveCur(); closeSheet(); render(); } },
     'ex-down': (d) => { const i = +d.ex; const a = cur.exercises; if (i < a.length - 1) { [a[i + 1], a[i]] = [a[i], a[i + 1]]; saveCur(); closeSheet(); render(); } },
-    'ex-remove': (d) => { cur.exercises.splice(+d.ex, 1); saveCur(); closeSheet(); render(); },
+    'ex-remove': (d) => removeExercise(+d.ex),
+    'ex-del': (d) => removeExercise(+d.ex),
     'finish-session': () => {
       if (!cur.exercises.length) { toast(t('no_exercise_toast')); return; }
       cur.done = true; cur.finishedAt = new Date().toISOString(); Store.saveSession(cur);

@@ -199,6 +199,7 @@ const Data = (() => {
       need_name: '種目名を入力してください', ex_added: '種目を追加しました',
       // ex menu
       ex_note: '種目メモ', save_note: 'メモを保存', move_up: '↑ 上へ', move_down: '↓ 下へ', remove_ex: 'この種目を削除', note_saved: 'メモを保存しました',
+      ex_removed: '種目を削除しました', ex_del_confirm: '「{name}」を削除しますか？記録したセットも消えます。',
       // timer
       rest: 'レスト', rest_done: '休憩おわり 💪', ok: 'OK', skip: 'スキップ',
       // history
@@ -253,6 +254,7 @@ const Data = (() => {
       custom_title: 'Add custom exercise', ex_name: 'Exercise name', ex_name_ph: 'e.g. Cable Crossover', part: 'Muscle group', add_do: 'Add',
       need_name: 'Please enter a name', ex_added: 'Exercise added',
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
+      ex_removed: 'Exercise removed', ex_del_confirm: 'Delete "{name}"? Its logged sets will be removed too.',
       rest: 'Rest', rest_done: 'Rest over 💪', ok: 'OK', skip: 'Skip',
       h_history: 'History', all_records: 'All records ({n})', history_empty: 'Completed workouts will appear here.',
       col_exercises: 'exercises', col_sets2: 'sets', col_total: 'total', edit_resume: 'Edit / resume', del_confirm: 'Delete this workout?',

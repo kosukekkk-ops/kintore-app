@@ -231,6 +231,8 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 .ex-head { display: flex; align-items: center; gap: 8px; padding: 13px 14px; border-bottom: 1px solid var(--border); }
 .ex-head .name { font-weight: 600; flex: 1; }
 .ex-head .kebab { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 0 4px; }
+.ex-head .ex-del { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 4px; display: inline-flex; align-items: center; border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+.ex-head .ex-del:hover, .ex-head .ex-del:active { color: var(--ng); background: color-mix(in srgb, var(--ng) 14%, transparent); }
 .set-table { width: 100%; border-collapse: collapse; }
 .set-table th { font-size: 11px; color: var(--text-dim); font-weight: 500; padding: 8px 4px 6px; text-align: center; }
 .set-table td { padding: 5px 4px; text-align: center; }
