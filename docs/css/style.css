@@ -237,7 +237,7 @@ input[type="date"] { color-scheme: dark; }
   background: var(--bg-elev); border: 1px solid var(--border); color: var(--text-dim);
   white-space: nowrap;
 }
-.chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chip.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
 .chips.scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 
 /* ---------- inputs ---------- */
@@ -256,7 +256,7 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
   flex: 1; background: var(--bg-elev); border: none; color: var(--text-dim);
   padding: 10px; font-family: inherit; font-size: 14px; cursor: pointer;
 }
-.seg button.active { background: var(--accent); color: #fff; }
+.seg button.active { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 
 /* ---------- workout / sets ---------- */
 .ex-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
@@ -283,6 +283,7 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 .ex-foot { padding: 8px 14px 12px; display: flex; gap: 8px; }
 .link-btn { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 13px; cursor: pointer; padding: 6px 0; }
 .link-btn.warm { color: var(--warn); }
+.link-btn.dim { color: var(--text-dim); }
 
 /* ---------- rest timer ---------- */
 .timer-bar {
@@ -294,7 +295,10 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
   box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: fade .2s ease;
   font-weight: 600;
 }
-.timer-bar .t { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.timer-bar { position: fixed; overflow: hidden; }
+.timer-bar .tl1 { font: 700 10px var(--font-num); letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.timer-bar .t { font-family: var(--font-mono); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.timer-bar .tprog { position: absolute; left: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.30); transition: width 1s linear; }
 .timer-bar button { background: rgba(0,0,0,.16); border: none; color: var(--on-accent); border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .timer-bar.done { background: var(--ok); }
 
@@ -311,7 +315,7 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 }
 .cal-cell.empty { background: none; }
 .cal-cell.today { border-color: var(--accent); }
-.cal-cell.has { background: var(--accent); color: #fff; font-weight: 600; }
+.cal-cell.has { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .cal-cell .mk { position: absolute; bottom: 4px; display: flex; gap: 2px; }
 .cal-cell .mk i { width: 4px; height: 4px; border-radius: 50%; background: #fff; display: block; }
 
@@ -417,7 +421,7 @@ a.linkbtn:active { transform: scale(.98); }
 }
 .act-btn:active { transform: scale(.98); }
 .act-btn .ai { font-size: 22px; }
-.act-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+.act-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); }
 .act-btn.sub { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); }
 
 /* RM計算機 */

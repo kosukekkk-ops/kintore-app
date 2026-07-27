@@ -226,7 +226,9 @@ const Data = (() => {
       ex_note: '種目メモ', save_note: 'メモを保存', move_up: '↑ 上へ', move_down: '↓ 下へ', remove_ex: 'この種目を削除', note_saved: 'メモを保存しました',
       ex_removed: '種目を削除しました', ex_del_confirm: '「{name}」を削除しますか？記録したセットも消えます。',
       // timer
-      rest: 'レスト', rest_done: '休憩おわり 💪', ok: 'OK', skip: 'スキップ',
+      rest: 'レスト', rest_done: '休憩おわり！次のセットへ 💪', ok: 'OK', skip: 'スキップ',
+      rest_now: 'レスト中', add30: '+30秒', rest_start: '⏱ レスト',
+      rest_hint: 'セットの「✓」を押すと休憩タイマーが自動で始まります（下の緑のバー）。手動で始めるときは種目の「⏱ レスト」、延長は「+30秒」、終了は「スキップ」。',
       // history
       h_history: '履歴', all_records: 'すべての記録（{n}件）', history_empty: '完了したワークアウトがここに表示されます。',
       col_exercises: '種目', col_sets2: 'セット', col_total: '総量', edit_resume: '編集・再開', del_confirm: 'このワークアウトを削除しますか？',
@@ -297,7 +299,9 @@ const Data = (() => {
       need_name: 'Please enter a name', ex_added: 'Exercise added',
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
       ex_removed: 'Exercise removed', ex_del_confirm: 'Delete "{name}"? Its logged sets will be removed too.',
-      rest: 'Rest', rest_done: 'Rest over 💪', ok: 'OK', skip: 'Skip',
+      rest: 'Rest', rest_done: 'Rest over — next set 💪', ok: 'OK', skip: 'Skip',
+      rest_now: 'REST', add30: '+30s', rest_start: '⏱ Rest',
+      rest_hint: 'The rest timer starts automatically when you tap ✓ on a set (the bar at the bottom). Tap "⏱ Rest" on an exercise to start it manually; "+30s" extends, "Skip" ends it.',
       h_history: 'History', all_records: 'All records ({n})', history_empty: 'Completed workouts will appear here.',
       col_exercises: 'exercises', col_sets2: 'sets', col_total: 'total', edit_resume: 'Edit / resume', del_confirm: 'Delete this workout?',
       h_graph: 'Graph', graph_empty: 'Record a workout to see progress per exercise here', exercise: 'Exercise',

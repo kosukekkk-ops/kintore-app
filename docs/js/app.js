@@ -360,7 +360,9 @@
     const foot = cardio
       ? `<button class="link-btn" data-act="add-set" data-ex="${ei}">${t('add_set')}</button>`
       : `<button class="link-btn" data-act="add-set" data-ex="${ei}">${t('add_set')}</button>
-         <button class="link-btn warm" data-act="add-warm" data-ex="${ei}">${t('add_warm')}</button>`;
+         <button class="link-btn warm" data-act="add-warm" data-ex="${ei}">${t('add_warm')}</button>
+         <span class="spacer"></span>
+         <button class="link-btn dim" data-act="rest-start">${t('rest_start')}</button>`;
     return `<div class="ex-block">
       <div class="ex-head">
         <span class="name">${esc(exName(ex))}</span>
@@ -930,10 +932,14 @@
     if (!bar) { bar = document.createElement('div'); bar.id = 'timer-bar'; document.body.appendChild(bar); }
     bar.className = 'timer-bar' + (timer.done ? ' done' : '');
     if (timer.done) {
-      bar.innerHTML = `<span class="t">${t('rest_done')}</span><div class="spacer"></div><button data-act="timer-dismiss">${t('ok')}</button>`;
+      bar.innerHTML = `<span class="t" style="font-size:16px">${t('rest_done')}</span><div class="spacer"></div><button data-act="timer-dismiss">${t('ok')}</button>`;
     } else {
-      bar.innerHTML = `<span>${t('rest')}</span><span class="t">${Data.fmtClock(timer.remain)}</span><div class="spacer"></div>
-        <button data-act="timer-add">+30s</button><button data-act="timer-skip">${t('skip')}</button>`;
+      // 「レスト中」ラベル＋残り時間＋細い進捗ライン。説明はここに書かず設定に置く(ミニマル維持)
+      const pct = timer.total ? (timer.remain / timer.total * 100) : 0;
+      bar.innerHTML = `<span class="tl1">${t('rest_now')}</span>
+        <span class="t">${Data.fmtClock(timer.remain)}</span><div class="spacer"></div>
+        <button data-act="timer-add">${t('add30')}</button><button data-act="timer-skip">${t('skip')}</button>
+        <i class="tprog" style="width:${pct.toFixed(1)}%"></i>`;
     }
   }
 
@@ -1243,7 +1249,8 @@
       <label class="field"><span class="lab">${t('rest_default')}</span><input inputmode="numeric" data-in="rest-default" value="${s.restDefault}"></label>
       <div class="row"><span class="spacer">${t('rest_auto')}</span>
         <div class="seg" style="width:120px"><button class="${s.restAuto ? 'active' : ''}" data-act="set-restauto" data-v="1">${t('on')}</button>
-        <button class="${!s.restAuto ? 'active' : ''}" data-act="set-restauto" data-v="0">${t('off')}</button></div></div></div>`;
+        <button class="${!s.restAuto ? 'active' : ''}" data-act="set-restauto" data-v="0">${t('off')}</button></div></div>
+      <p class="muted small mt">${t('rest_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_data')}</h2>
       <button class="btn secondary mb" data-act="export">${t('export_btn')}</button>
       <button class="btn secondary mb" data-act="import">${t('import_btn')}</button>
@@ -1326,7 +1333,8 @@
       render(); toast(t('ex_added'));
     },
 
-    'timer-add': () => { timer.remain += 30; if (!timer.id && !timer.done) startTimer(timer.remain); else if (timer.done) { timer.done = false; startTimer(timer.remain); } syncTimerBar(); },
+    'rest-start': () => startTimer(S().restDefault),
+    'timer-add': () => { timer.remain += 30; timer.total += 30; if (!timer.id && !timer.done) startTimer(timer.remain); else if (timer.done) { timer.done = false; startTimer(timer.remain); } syncTimerBar(); },
     'timer-skip': () => clearTimer(),
     'timer-dismiss': () => clearTimer(),
 
