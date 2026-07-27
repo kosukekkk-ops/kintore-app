@@ -42,8 +42,10 @@ const Store = (() => {
     /* ---------- settings / theme ---------- */
     getSettings() { return Object.assign({}, DEFAULT_SETTINGS, read('settings', {})); },
     setSettings(patch) { write('settings', Object.assign(this.getSettings(), patch)); },
-    getTheme() { return read('theme', 'system'); },
-    setTheme(t) { write('theme', t); },
+    // 外観はダーク固定。アクセント色のみ切替(lime | orange)。
+    // 旧バージョンの theme(system/light/dark) が残っていても lime にフォールバックする。
+    getAccent() { const a = read('accent', 'lime'); return a === 'orange' ? 'orange' : 'lime'; },
+    setAccent(a) { write('accent', a === 'orange' ? 'orange' : 'lime'); },
 
     /* ---------- exercises ---------- */
     getExercises() { return read('exercises', []); },
@@ -135,6 +137,15 @@ const Store = (() => {
           this.getTemplates().forEach(t => (t.exercises || []).forEach(te => used.add(te.exerciseId)));
           list = list.filter(e => !(dep.includes(e.name) && !e.custom && !used.has(e.id)));
         }
+        // 既存の初期種目にも最新のメタ情報(英語名・サブ部位・器具)を反映する。
+        // 追加だけだと、あとから en を足しても既存ユーザーが日本語表示のままになるため。
+        const meta = {};
+        ((typeof Data !== 'undefined' && Data.SEED_EXERCISES) || []).forEach(e => { meta[e.name] = e; });
+        list = list.map(e => {
+          const m = meta[e.name];
+          if (!m || e.custom) return e;
+          return Object.assign({}, e, { en: m.en || e.en, sub: m.sub || e.sub || '', equip: m.equip || e.equip || '' });
+        });
         this.setExercises(list);
         this.setSettings({ seedVersion: seedVer });
       }

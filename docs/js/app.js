@@ -217,7 +217,8 @@
       const has = byDate[key];
       const cls = has ? 'has' : (key === todayK ? 'today' : '');
       const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
-      h += `<div class="cal-cell ${cls}" ${has ? `data-act="cal-day" data-date="${key}"` : ''}>${d}${marks}</div>`;
+      // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
+      h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
     }
     h += `</div></div>`;
     return h;
@@ -299,7 +300,7 @@
     const vol = Data.sessionVolumeKg(s);
     return `<div class="lrow" data-act="open-session" data-id="${s.id}">
       <div class="lmain"><div class="ltitle">${esc(s.name || Data.fmtDate(s.date))}</div>
-      <div class="lsub">${Data.fmtDate(s.date)} ・ ${t('n_exercises', { n: s.exercises.length })} ・ ${t('n_sets', { n: Data.sessionSetCount(s) })}</div></div>
+      <div class="lsub">${Data.fmtDate(s.date)}${t('sep')}${t('n_exercises', { n: s.exercises.length })}${t('sep')}${t('n_sets', { n: Data.sessionSetCount(s) })}</div></div>
       <div class="lval">${Data.fmtNum(Data.kgToDisplay(vol, unit()))}${uLab()}</div></div>`;
   }
 
@@ -309,7 +310,8 @@
     let h = `<button class="back-btn" data-act="close-session">‹ ${state.wo.backTo === 'history' ? t('to_history') : t('to_home')}</button>`;
     h += `<div class="head"><div style="flex:1">
       <input id="s-name" data-in="sname" placeholder="${t('workout_name_ph')}" value="${esc(s.name || '')}" style="font-size:18px;font-weight:600;background:none;border:none;padding:0">
-      <div class="sub">${Data.fmtDate(s.date)} ・ ${Data.fmtNum(Data.kgToDisplay(vol, unit()))}${uLab()} ・ ${t('n_sets', { n: Data.sessionSetCount(s) })}</div>
+      <div class="sub"><input class="date-in" type="date" data-in="sdate" value="${s.date}" aria-label="${t('a_date')}">
+       ${t('sep')}${Data.fmtNum(Data.kgToDisplay(vol, unit()))}${uLab()}${t('sep')}${t('n_sets', { n: Data.sessionSetCount(s) })}</div>
     </div></div>`;
 
     if (!s.exercises.length) {
@@ -382,7 +384,10 @@
   // 記録画面を閉じる。編集中の状態(cur/screen)も必ず畳んでおく。
   // 残したままだと記録タブへ戻った時に編集画面が復活し、戻る操作が一周してしまう。
   function closeSession() {
-    saveCur();
+    // 種目を1つも入れずに離れた「完了済み」セッションは空の記録として残るので掃除する
+    // (カレンダーから日付を選んだだけで戻った場合など)
+    if (cur && cur.done && !cur.exercises.length) Store.deleteSession(cur.id);
+    else saveCur();
     const back = state.wo.backTo;
     cur = null; state.wo.screen = 'home'; state.wo.backTo = null;
     if (back === 'history') switchTab('history'); else render();
@@ -556,8 +561,21 @@
   const _pad = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--accent)"/>`;
   // 対象筋のハイライト(塗り)と、左側のラベル＋リーダー線
   const _mus = (cx, cy, rx, ry, rot, c) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c}" transform="rotate(${rot} ${cx} ${cy})"/>`;
-  const _lbl = (y, text, c, lx, ly) => `<text x="4" y="${y}" font-size="10" fill="${c}">${text}</text><line x1="54" y1="${y - 3}" x2="${lx}" y2="${ly}" stroke="${c}" stroke-width="1"/>`;
-  const _lblR = (y, text, c, lx, ly) => `<text x="196" y="${y}" font-size="10" text-anchor="end" fill="${c}">${text}</text><line x1="${196 - text.length * 10 - 4}" y1="${y - 3}" x2="${lx}" y2="${ly}" stroke="${c}" stroke-width="1"/>`;
+  // イラスト内の筋肉ラベル。呼び出し箇所が多いので _lbl/_lblR の内部で言語切替する。
+  const MLABEL_EN = {
+    '大胸筋': 'Pecs', '大胸筋上部': 'Upper pecs', '大胸筋下部': 'Lower pecs',
+    '三角筋': 'Delts', '三角筋前部': 'Front delts', '三角筋中部': 'Side delts', '三角筋後部': 'Rear delts',
+    '上腕三頭筋': 'Triceps', '上腕二頭筋': 'Biceps', '広背筋': 'Lats', '僧帽筋': 'Traps',
+    '脊柱起立筋': 'Erectors', '臀筋': 'Glutes', '臀筋・ハム': 'Glutes & hams', '臀筋（大殿筋）': 'Glutes',
+    '大腿四頭筋': 'Quads', 'ハムストリングス': 'Hamstrings', '内転・外転筋': 'Adductors', 'ふくらはぎ': 'Calves',
+    '腹直筋': 'Abs', '体幹（腹直筋）': 'Core', '腹斜筋': 'Obliques',
+    '下半身・心肺': 'Legs & cardio', '全身・心肺持久力': 'Full body'
+  };
+  const ml = (s) => (Data.lang() === 'en' && MLABEL_EN[s]) ? MLABEL_EN[s] : s;
+  // 描画幅の概算(全角=10px / 半角=5.4px)。右寄せラベルのリーダー線の起点に使う。
+  const _tw = (s) => Array.from(s).reduce((a, c) => a + (c.charCodeAt(0) > 0xff ? 10 : 5.4), 0);
+  const _lbl = (y, text, c, lx, ly) => { const s = ml(text); return `<text x="4" y="${y}" font-size="10" fill="${c}">${s}</text><line x1="${_tw(s) + 8}" y1="${y - 3}" x2="${lx}" y2="${ly}" stroke="${c}" stroke-width="1"/>`; };
+  const _lblR = (y, text, c, lx, ly) => { const s = ml(text); return `<text x="196" y="${y}" font-size="10" text-anchor="end" fill="${c}">${s}</text><line x1="${196 - _tw(s) - 4}" y1="${y - 3}" x2="${lx}" y2="${ly}" stroke="${c}" stroke-width="1"/>`; };
   const _torso = (pts) => `<polygon points="${pts}" fill="var(--fig)"/>`;
   // 筋肉色(参考: 胸=赤/肩=橙/三頭=青/二頭=紫/背=緑/脚=黄)
   const CR = 'var(--ng)', CO = 'var(--warn)', CB = 'var(--accent)', CP = 'var(--accent-2)', CG = 'var(--ok)', CY = 'var(--m-legs)';
@@ -591,9 +609,7 @@
         `<circle cx="132" cy="66" r="6" fill="var(--warn)"/>` +
         `<ellipse cx="126" cy="53" rx="4.5" ry="9" fill="var(--accent)" transform="rotate(-38 126 53)"/>` +
         // ラベル(リーダー線付き)
-        `<text x="4" y="72" font-size="10" fill="var(--ng)">大胸筋上部</text><line x1="53" y1="69" x2="114" y2="80" stroke="var(--ng)" stroke-width="1"/>` +
-        `<text x="4" y="98" font-size="10" fill="var(--warn)">三角筋前部</text><line x1="53" y1="95" x2="128" y2="68" stroke="var(--warn)" stroke-width="1"/>` +
-        `<text x="4" y="122" font-size="10" fill="var(--accent)">上腕三頭筋</text><line x1="53" y1="119" x2="124" y2="55" stroke="var(--accent)" stroke-width="1"/>`;
+        _lbl(72, '大胸筋上部', CR, 114, 80) + _lbl(98, '三角筋前部', CO, 128, 68) + _lbl(122, '上腕三頭筋', CB, 124, 55);
       // デクライン: 頭が低い側の斜めベンチ
       case 'decline': return _floor() +
         `<line x1="56" y1="118" x2="104" y2="70" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>` +
@@ -700,6 +716,17 @@
     adduction: '内転筋・外転筋', calf: '下腿三頭筋（ふくらはぎ）', crunch: '腹直筋', plank: '腹横筋・体幹',
     backext: '脊柱起立筋・臀筋', twist: '腹斜筋', bike: '下半身・心肺持久力', run: '全身・心肺持久力'
   };
+  const POSE_MUSCLES_EN = {
+    bench: 'Pectorals, front delts, triceps', incline: 'Upper pecs, front delts, triceps', decline: 'Lower pecs, triceps',
+    fly: 'Pectorals', pullover: 'Pectorals, lats', pushup: 'Pectorals, triceps, core',
+    pulldown: 'Lats, teres major, biceps', pullup: 'Lats, biceps', row: 'Lats, traps, rhomboids',
+    deadlift: 'Erector spinae, glutes, hamstrings', ohp: 'Deltoids, triceps', lateral: 'Side delts',
+    reardelt: 'Rear delts, traps', curl: 'Biceps', pushdown: 'Triceps', triceps: 'Triceps',
+    dip: 'Triceps, lower pecs', squat: 'Quads, glutes, hamstrings', legpress: 'Quads, glutes',
+    legext: 'Quads', legcurl: 'Hamstrings', hipthrust: 'Glutes (gluteus maximus)',
+    adduction: 'Adductors / abductors', calf: 'Calves (triceps surae)', crunch: 'Rectus abdominis', plank: 'Transverse abdominis, core',
+    backext: 'Erector spinae, glutes', twist: 'Obliques', bike: 'Lower body, cardio endurance', run: 'Full body, cardio endurance'
+  };
   const POSE_TIPS = {
     bench: ['肩甲骨を寄せて胸を張り、肩を下げて固定する', 'バーは乳頭のあたりへ真っ直ぐ下ろす', '肘は張りすぎず約45〜75度をキープ', '下ろすときに息を吸い、押すときに吐く'],
     incline: ['ベンチは30〜45度に設定（角度が急すぎると肩に効く）', '肩甲骨を寄せて胸を張り、鎖骨〜大胸筋上部へ下ろす', '肘を開きすぎない（約45度）', 'お尻と背中はベンチにつけたまま行う'],
@@ -732,6 +759,38 @@
     bike: ['サドル高は脚が軽く曲がる位置に', '一定の負荷とペースを保つ', '目標時間・距離を決めて行う'],
     run: ['無理のないペースから始める', '着地は体の真下を意識', '呼吸を整えて一定ペースを保つ']
   };
+  const POSE_TIPS_EN = {
+    bench: ['Retract your shoulder blades, lift your chest and keep the shoulders down', 'Lower the bar straight to nipple level', 'Keep elbows at roughly 45–75°, not flared', 'Inhale on the way down, exhale as you press'],
+    incline: ['Set the bench to 30–45° (steeper shifts the work to the shoulders)', 'Chest up, blades retracted; lower to the collarbone / upper chest', "Don't flare the elbows (about 45°)", 'Keep your hips and back on the bench'],
+    decline: ['Decline the bench 15–30° and lock your legs in', 'Lower the bar to your lower chest', 'Squeeze just before locking the elbows out'],
+    fly: ['Keep a slight, fixed bend in the elbows and move in an arc', 'Open until you feel the stretch across the chest', 'Close by squeezing with the pecs'],
+    pullover: ['Slight elbow bend; stretch back behind your head', 'Feel the stretch through the chest and lats', 'Brace your core so the lower back does not arch'],
+    pushup: ['Keep a straight line from head to heels', 'Hands slightly wider than shoulder width', 'Lower until your chest nearly touches the floor'],
+    pulldown: ['Depress the shoulder blades first, then pull — no shrugging', 'Pull the bar to your collarbone / upper chest', 'Pull with the lats, not momentum', 'Control the bar on the way back up'],
+    pullup: ['Retract the blades and lift your chest', 'Pull until your chin clears the bar', 'Stay tight on the way down'],
+    row: ['Pull to your sternum / stomach while squeezing the blades', 'Chest up, no rounding of the back', 'Return slowly without swinging'],
+    deadlift: ['Keep a neutral spine — never round the back', 'Keep the bar close to your body', 'Stand up by pushing the floor away with legs and hips', 'Brace your core to protect the lower back'],
+    ohp: ['Brace your core and avoid arching the lower back', 'Press the bar / dumbbells straight overhead', 'Lower to about ear height'],
+    lateral: ['Raise to shoulder height without swinging', 'Pinky slightly high; do not shrug with the traps', 'Lower slowly and keep the tension'],
+    reardelt: ['Hinge forward and keep the shoulder blades fairly still', 'Slight elbow bend, open the arms backward', 'Focus on squeezing the rear delts'],
+    curl: ['Pin your elbows to your sides — no swinging', 'Lift with the biceps, keep the wrists neutral', 'Lower slowly under control'],
+    pushdown: ['Keep the elbows pinned and move only the forearms', 'Extend fully and squeeze at the bottom', 'No momentum'],
+    triceps: ['Keep the elbow position fixed and stretch the triceps', 'Get a full stretch behind the head', 'Extend the elbows completely'],
+    dip: ['Lean forward for lower chest, stay upright for triceps', 'Keep the shoulders down, not shrugged', 'Avoid dropping so deep that it strains the shoulder'],
+    squat: ['Feet shoulder-width, toes slightly out', 'Track the knees in line with the toes', 'Descend until the thighs are parallel to the floor', 'Chest up, back not rounded'],
+    legpress: ['Keep the knees out, tracking with the toes', 'Do not lock the knees out hard at the top', 'Drive through your heels'],
+    legext: ['Extend the knees fully without swinging', 'Squeeze the quads at the top', 'Lower slowly'],
+    legcurl: ['Pull the heels toward your glutes without momentum', 'Pause at the contracted position', 'Return slowly'],
+    hipthrust: ['Rest your shoulder blades on the bench', 'Tuck your chin and drive up by squeezing the glutes', 'Posteriorly tilt the pelvis and hold 1 second at the top', 'Do not hyperextend the lower back'],
+    adduction: ['Close / open slowly without momentum', 'Focus on the inner or outer thigh contracting', 'Use the full range of motion'],
+    calf: ['Drop the heels low for a deep stretch', 'Rise all the way onto the toes', 'Hold 1 second at the top'],
+    crunch: ['Curl up by drawing the sternum toward the pelvis', 'Do not yank with the neck or use momentum', 'Focus on the abs contracting'],
+    plank: ['Hold a straight line from head to heels', 'Do not let the hips rise or sag', 'Brace the abs and keep breathing'],
+    backext: ['Rise only to horizontal — do not hyperextend', 'Move slowly without momentum', 'Focus on the glutes and erectors'],
+    twist: ['Keep the pelvis fixed and rotate only the torso', 'Control the movement, no swinging', 'Focus on the obliques'],
+    bike: ['Set the saddle so the leg is slightly bent at the bottom', 'Hold a steady resistance and cadence', 'Decide a target time or distance beforehand'],
+    run: ['Start at a pace you can sustain', 'Land with your foot under your body', 'Keep your breathing and pace steady']
+  };
 
   // 動作イメージの画像フォールバック: 種目名.png → ポーズ.png → ポーズ.jpg → 自作SVG
   window.__imgfb = function (img) {
@@ -748,20 +807,22 @@
     const ex = Store.exerciseById(exId); if (!ex) return;
     const pose = exercisePose(ex);
     const regions = exerciseRegions(ex);
-    const musc = POSE_MUSCLES[pose] || (Data.muscleName(ex.muscle) + (ex.sub ? ' / ' + ex.sub : ''));
-    const tips = (Data.lang() === 'ja' && POSE_TIPS[pose]) ? POSE_TIPS[pose] : null;
-    const qImg = encodeURIComponent(ex.name + ' 筋トレ マシン');
-    const qVid = encodeURIComponent(ex.name + ' やり方');
+    const en = Data.lang() === 'en';
+    const musc = (en ? POSE_MUSCLES_EN[pose] : POSE_MUSCLES[pose]) || (Data.muscleName(ex.muscle) + (ex.sub ? ' / ' + ex.sub : ''));
+    const tips = (en ? POSE_TIPS_EN[pose] : POSE_TIPS[pose]) || null;
+    // 検索は表示言語に合わせた語で投げる(英語UIで日本語検索にならないように)
+    const qImg = encodeURIComponent(en ? (ex.en || ex.name) + ' exercise machine' : ex.name + ' 筋トレ マシン');
+    const qVid = encodeURIComponent(en ? (ex.en || ex.name) + ' how to' : ex.name + ' やり方');
     // 種目選択(ピッカー)から開いた場合は「追加して戻る」を出す
     const fromPicker = !!(picker.onPick && $('#pick-list'));
-    showSheet(`<div class="info-head"><button class="back-btn" data-act="info-close">‹ ${fromPicker ? '種目選択へ戻る' : '戻る'}</button></div>
+    showSheet(`<div class="info-head"><button class="back-btn" data-act="info-close">‹ ${fromPicker ? t('back_to_picker') : t('back')}</button></div>
       <h2>${esc(exName(ex))}</h2>
-      <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(ex.equip)}</span>` : ''}${muscleTag(ex.muscle)}</div>
-      ${fromPicker ? `<button class="btn mb" data-act="info-add" data-id="${ex.id}">＋ この種目を追加して戻る</button>` : ''}
+      <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(Data.equipName(ex.equip))}</span>` : ''}${muscleTag(ex.muscle)}</div>
+      ${fromPicker ? `<button class="btn mb" data-act="info-add" data-id="${ex.id}">${t('info_add_btn')}</button>` : ''}
       <div class="sec-title">${t('pose_label')}</div>
       <div class="posefig"><img class="pose-img" src="exercise-images/${encodeURIComponent(ex.name)}.png" data-pose="${pose}" alt="${esc(exName(ex))}" loading="lazy" onerror="window.__imgfb(this)">
         <div class="pose-svg" style="display:none">${poseSvg(pose)}</div></div>
-      <div class="sec-title">${t('worked_muscles')}：${esc(musc)}</div>
+      <div class="sec-title">${t('worked_muscles')}${t('label_sep')}${esc(musc)}</div>
       <div class="bodymap">${bodyMapSvg(regions)}</div>
       ${tips ? `<div class="sec-title">${t('points_label')}</div><ul class="tips">${tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       <a class="linkbtn mb" href="https://www.google.com/search?tbm=isch&q=${qImg}" target="_blank" rel="noopener noreferrer">${t('see_images')}</a>
@@ -796,7 +857,7 @@
     return ids;
   }
   function pickRow(e, showMuscle) {
-    const tags = (showMuscle ? muscleTag(e.muscle) : '') + (e.equip ? `<span class="etag">${esc(e.equip)}</span>` : '');
+    const tags = (showMuscle ? muscleTag(e.muscle) : '') + (e.equip ? `<span class="etag">${esc(Data.equipName(e.equip))}</span>` : '');
     return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}<button class="pick-info" data-act="ex-info" data-id="${e.id}" aria-label="info">ⓘ</button></div>`;
   }
   // 部位内をサブ部位の見出しでグループ化(サブ無しは先頭にそのまま)
@@ -806,7 +867,7 @@
     const subs = {};
     items.filter(e => e.sub).forEach(e => { (subs[e.sub] = subs[e.sub] || []).push(e); });
     const order = Data.SUB_ORDER.filter(s => subs[s]).concat(Object.keys(subs).filter(s => !Data.SUB_ORDER.includes(s)));
-    order.forEach(s => { html += `<div class="pick-sub">${esc(s)}</div>` + subs[s].map(e => pickRow(e, false)).join(''); });
+    order.forEach(s => { html += `<div class="pick-sub">${esc(Data.subName(s))}</div>` + subs[s].map(e => pickRow(e, false)).join(''); });
     return html;
   }
   function filteredPickList() {
@@ -814,7 +875,9 @@
     // 検索モード: 部位横断でフラット表示(部位タグ付き)
     if (picker.q) {
       const q = picker.q.toLowerCase();
-      const list = all.filter(e => exName(e).toLowerCase().includes(q) || e.name.toLowerCase().includes(q) || (e.equip || '').includes(picker.q))
+      // 表示名・原名・器具(日本語/英語どちらでも)で絞り込む
+      const list = all.filter(e => exName(e).toLowerCase().includes(q) || e.name.toLowerCase().includes(q)
+        || (e.equip || '').includes(picker.q) || Data.equipName(e.equip).toLowerCase().includes(q))
         .sort((a, b) => a.muscle.localeCompare(b.muscle) || a.order - b.order);
       return list.map(e => pickRow(e, true)).join('') || `<p class="muted center">${t('no_match')}</p>`;
     }
@@ -897,7 +960,8 @@
       const has = byDate[key];
       const cls = has ? 'has' : (key === todayK ? 'today' : '');
       const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
-      h += `<div class="cal-cell ${cls}" ${has ? `data-act="cal-day" data-date="${key}"` : ''}>${d}${marks}</div>`;
+      // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
+      h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
     }
     h += `</div></div>`;
 
@@ -910,7 +974,7 @@
         <p class="muted small" style="margin-bottom:4px">${t('unfinished_hint')}</p>`;
       h += unfinished.map(s => `<div class="lrow" data-act="resume-session" data-id="${s.id}">
         <div class="lmain"><div class="ltitle">${esc(s.name || Data.fmtDate(s.date))} <span class="etag">${t('badge_unfinished')}</span></div>
-        <div class="lsub">${Data.fmtDate(s.date)} ・ ${t('n_exercises', { n: s.exercises.length })} ・ ${t('n_sets', { n: Data.sessionSetCount(s) })}</div></div>
+        <div class="lsub">${Data.fmtDate(s.date)}${t('sep')}${t('n_exercises', { n: s.exercises.length })}${t('sep')}${t('n_sets', { n: Data.sessionSetCount(s) })}</div></div>
         <div class="lval">${Data.fmtNum(Data.kgToDisplay(Data.sessionVolumeKg(s), unit()))}${uLab()}</div></div>`).join('');
       h += `</div>`;
     }
@@ -1117,7 +1181,7 @@
         if (l.protein) parts.push(`🍗 ${l.protein}g`);
         return `<div class="lrow" data-act="cond-edit" data-date="${l.date}">
           <div class="lmain"><div class="ltitle">${Data.fmtDate(l.date)}</div>
-          <div class="lsub">${parts.join(' ・ ') || t('note_only')}</div></div>
+          <div class="lsub">${parts.join(t('sep')) || t('note_only')}</div></div>
           <div style="font-size:18px;color:var(--text-dim)">›</div></div>`;
       }).join('');
     }
@@ -1132,6 +1196,9 @@
     let h = `<button class="back-btn" data-act="cond-back">‹ ${t('h_condition')}</button>`;
     h += `<div class="head"><h1 style="font-size:18px">${Data.fmtDate(date)}</h1></div>`;
     h += `<div class="card">
+      <label class="field"><span class="lab">${t('c_date')}</span>
+        <input type="date" data-in="c-date" value="${date}"></label>`;
+    h += `
       <label class="field"><span class="lab">${t('c_weight', { u: uLab() })}</span><input inputmode="decimal" data-in="c-weight" value="${l.weight != null ? disp(l.weight) : ''}" placeholder="0"></label>
       <label class="field"><span class="lab">${t('c_sleep')}</span><input inputmode="decimal" data-in="c-sleep" value="${l.sleepHours != null ? Data.fmtNum(l.sleepHours) : ''}" placeholder="7"></label>
       <label class="field"><span class="lab">${t('c_quality')}</span>
@@ -1149,7 +1216,7 @@
   /* ============ 設定タブ ============ */
   function renderSettings() {
     const s = S();
-    const theme = Store.getTheme();
+    const accent = Store.getAccent();
     let h = `<button class="back-btn" data-act="settings-back">‹ ${t('back')}</button>`;
     h += `<div class="head"><h1>⚙️ ${t('settings')}</h1></div>`;
     h += `<div class="card"><h2>${t('s_unit')}</h2>
@@ -1159,10 +1226,15 @@
       <div class="seg"><button class="${s.lang === 'ja' ? 'active' : ''}" data-act="set-lang" data-v="ja">日本語</button>
       <button class="${s.lang === 'en' ? 'active' : ''}" data-act="set-lang" data-v="en">English</button></div>
       <p class="muted small mt">${t('s_lang_hint')}</p></div>`;
+    const swatch = (bg, ac) => `<span class="sw"><i style="background:${bg}"></i><i style="background:${ac}"></i></span>`;
     h += `<div class="card"><h2>${t('s_appearance')}</h2>
-      <div class="seg"><button class="${theme === 'system' ? 'active' : ''}" data-act="set-theme" data-v="system">${t('th_auto')}</button>
-      <button class="${theme === 'light' ? 'active' : ''}" data-act="set-theme" data-v="light">${t('th_light')}</button>
-      <button class="${theme === 'dark' ? 'active' : ''}" data-act="set-theme" data-v="dark">${t('th_dark')}</button></div></div>`;
+      <div class="theme-grid">
+        <button class="theme-opt ${accent === 'lime' ? 'active' : ''}" data-act="set-accent" data-v="lime">
+          ${swatch('#0c0e0d', '#c6ff3a')}<span>${t('th_lime')}</span></button>
+        <button class="theme-opt ${accent === 'orange' ? 'active' : ''}" data-act="set-accent" data-v="orange">
+          ${swatch('#0d0c0a', '#ff9526')}<span>${t('th_orange')}</span></button>
+      </div>
+      <p class="muted small mt">${t('s_appearance_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_goal')}</h2>
       <label class="field"><span class="lab">${t('goal_volume', { u: uLab() })}</span>
         <input inputmode="numeric" data-in="goal-volume" value="${Data.fmtNum(Data.kgToDisplay(Math.max(500, s.goalVolume || 5000), s.unit))}"></label>
@@ -1261,6 +1333,7 @@
     'cal-prev': () => { let [y, m] = state.hist.ym; m--; if (m < 0) { m = 11; y--; } state.hist.ym = [y, m]; render(); },
     'cal-next': () => { let [y, m] = state.hist.ym; m++; if (m > 11) { m = 0; y++; } state.hist.ym = [y, m]; render(); },
     'cal-day': (d) => { const list = Store.getSessions().filter(s => s.done && s.date === d.date); if (list.length === 1) openDetail(list[0].id); else openDayList(d.date, list); },
+    'add-on-date': (d) => addRecordOnDate(d.date),
     'hist-back': () => { state.hist.screen = 'list'; render(); },
     'day-open': (d) => { closeSheet(); openDetail(d.id); },
     'edit-session': (d) => { cur = Store.getSession(d.id); state.wo.screen = 'session'; state.wo.backTo = 'history'; switchTab('workout'); },
@@ -1290,7 +1363,7 @@
 
     'set-unit': (d) => { Store.setSettings({ unit: d.v }); render(); },
     'set-lang': (d) => { Store.setSettings({ lang: d.v }); relabelTabs(); render(); },
-    'set-theme': (d) => { Store.setTheme(d.v); applyTheme(); render(); },
+    'set-accent': (d) => { Store.setAccent(d.v); applyAccent(); render(); },
     'set-restauto': (d) => { Store.setSettings({ restAuto: d.v === '1' }); render(); },
     'export': () => doExport(),
     'import': () => doImport(),
@@ -1310,6 +1383,8 @@
     if (!el) return;
     const k = el.dataset.in, v = el.value;
     if (k === 'sname' && cur) { cur.name = v; saveCur(); return; }
+    // 記録漏れの救済: 記録日をあとから変更できる(履歴・グラフの集計日も動く)
+    if (k === 'sdate' && cur) { if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { cur.date = v; saveCur(); render(); toast(t('date_changed', { d: Data.fmtDate(v) })); } return; }
     if (k === 'snote' && cur) { cur.note = v; saveCur(); return; }
     if (k === 'weight' && cur) { cur.exercises[+el.dataset.ex].sets[+el.dataset.set].weight = Data.displayToKg(v, unit()); saveCur(); return; }
     if (k === 'reps' && cur) { cur.exercises[+el.dataset.ex].sets[+el.dataset.set].reps = parseInt(v, 10) || 0; saveCur(); return; }
@@ -1326,6 +1401,11 @@
     if (k === 'tpl-weight') { state.menu.draft.exercises[+el.dataset.i].weight = Data.displayToKg(v, unit()); return; }
     if (k === 'tpl-duration') { state.menu.draft.exercises[+el.dataset.i].duration = parseFloat(v) || 0; return; }
     if (k === 'tpl-distance') { state.menu.draft.exercises[+el.dataset.i].distance = parseFloat(v) || 0; return; }
+    // 体調も記録漏れを埋められるよう日付を選べる(その日の既存記録を読み込み直す)
+    if (k === 'c-date') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { state.cond.date = v; condQuality = (Store.getLog(v) || {}).sleepQuality || 0; render(); }
+      return;
+    }
     if (k === 'rest-default') { Store.setSettings({ restDefault: Math.max(5, parseInt(v, 10) || 90) }); return; }
     if (k === 'goal-volume') { Store.setSettings({ goalVolume: Math.max(500, Data.displayToKg(v, unit()) || 5000) }); return; }
   }
@@ -1418,7 +1498,20 @@
   }
   function openDetail(id) { state.hist.screen = 'detail'; state.hist.sessionId = id; switchTab('history'); }
   function openDayList(date, list) {
-    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${Data.fmtDate(date)}</h2>${list.map(s => `<div class="pick-row" data-act="day-open" data-id="${s.id}"><span class="pname">${esc(s.name || t('h_record'))}</span><span class="muted small">${t('n_exercises', { n: s.exercises.length })}</span></div>`).join('')}`);
+    const rows = list.map(s => `<div class="pick-row" data-act="day-open" data-id="${s.id}"><span class="pname">${esc(s.name || t('h_record'))}</span><span class="muted small">${t('n_exercises', { n: s.exercises.length })}</span></div>`).join('');
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${Data.fmtDate(date)}</h2>
+      ${rows || `<p class="muted small mb">${t('day_no_record')}</p>`}
+      <button class="btn ${list.length ? 'ghost mt' : ''}" data-act="add-on-date" data-date="${date}">${t('add_on_date')}</button>`);
+  }
+
+  // 記録し忘れた日の追加。あとから足す記録なので最初から「完了」扱いで作り、
+  // 履歴にすぐ並ぶようにする(進行中セッションとは競合させない)。
+  function addRecordOnDate(dateKey) {
+    const stamp = new Date(dateKey + 'T12:00:00').toISOString();
+    const s = { id: Store.uid(), date: dateKey, name: '', note: '', startedAt: stamp, finishedAt: stamp, done: true, exercises: [] };
+    Store.saveSession(s);
+    cur = s; state.wo.screen = 'session'; state.wo.backTo = 'history';
+    closeSheet(); switchTab('workout');
   }
   function confirmSheet(msg, onOk) {
     showSheet(`<h2>${t('confirm')}</h2><p class="mb">${esc(msg)}</p>
@@ -1447,7 +1540,7 @@
       reader.onload = () => {
         try {
           const r = Store.importMerge(JSON.parse(reader.result));
-          applyTheme(); relabelTabs(); render();
+          applyAccent(); relabelTabs(); render();
           toast(t('imported', { e: r.exercises, s: r.sessions }));
         } catch (e) { toast(t('import_failed')); }
       };
@@ -1456,12 +1549,11 @@
     input.click();
   }
 
-  /* ---- テーマ・タブラベル ---- */
-  function applyTheme() {
-    const pref = Store.getTheme();
-    const light = pref === 'light' || (pref === 'system' && matchMedia('(prefers-color-scheme: light)').matches);
-    document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-    const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', light ? '#eef1f6' : '#070a11');
+  /* ---- アクセント色・タブラベル ---- */
+  function applyAccent() {
+    const a = Store.getAccent();
+    document.documentElement.setAttribute('data-accent', a);
+    const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a === 'orange' ? '#0d0c0a' : '#0c0e0d');
   }
   // タブはアイコンのみ(文字なし)。言語切替時は aria-label だけ更新する。
   function relabelTabs() {
@@ -1490,12 +1582,11 @@
   /* ============ 起動 ============ */
   function boot() {
     Store.ensureSeed();
-    applyTheme();
+    applyAccent();
     relabelTabs();
     document.body.addEventListener('click', onClick);
     document.body.addEventListener('input', onInput);
     $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
-    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (Store.getTheme() === 'system') applyTheme(); });
     // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
     pushBackTrap();
     window.addEventListener('popstate', () => { if (goBackOne()) pushBackTrap(); });
