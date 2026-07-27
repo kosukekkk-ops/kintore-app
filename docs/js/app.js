@@ -912,33 +912,47 @@
   }
 
   /* ============ レストタイマー(通知音・振動なし。視覚カウントのみ) ============ */
-  const timer = { remain: 0, total: 0, id: null, done: false };
-  function startTimer(sec) {
+  const timer = { remain: 0, total: 0, id: null, done: false, paused: false };
+  function tickStart() {
     stopTimer();
-    timer.total = sec; timer.remain = sec; timer.done = false;
     timer.id = setInterval(() => {
       timer.remain -= 1;
       if (timer.remain <= 0) { timer.remain = 0; stopTimer(); timer.done = true; }
       syncTimerBar();
     }, 1000);
+  }
+  function startTimer(sec) {
+    timer.total = sec; timer.remain = sec; timer.done = false; timer.paused = false;
+    tickStart();
     syncTimerBar();
   }
   function stopTimer() { if (timer.id) clearInterval(timer.id); timer.id = null; }
-  function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; syncTimerBar(); }
+  // 一時停止/再開(残り時間は保持)
+  function pauseResumeTimer() {
+    if (timer.done) return;
+    if (timer.paused) { timer.paused = false; tickStart(); }
+    else { stopTimer(); timer.paused = true; }
+    syncTimerBar();
+  }
+  function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
   function syncTimerBar() {
     let bar = $('#timer-bar');
-    const show = timer.id || timer.done;
+    const show = timer.id || timer.done || timer.paused;
+    // バーの分だけ本文の下余白を広げ、最下段のセット行や保存ボタンが隠れないようにする
+    document.body.classList.toggle('has-timer', !!show);
     if (!show) { if (bar) bar.remove(); return; }
     if (!bar) { bar = document.createElement('div'); bar.id = 'timer-bar'; document.body.appendChild(bar); }
-    bar.className = 'timer-bar' + (timer.done ? ' done' : '');
+    bar.className = 'timer-bar' + (timer.done ? ' done' : '') + (timer.paused ? ' paused' : '');
     if (timer.done) {
       bar.innerHTML = `<span class="t" style="font-size:16px">${t('rest_done')}</span><div class="spacer"></div><button data-act="timer-dismiss">${t('ok')}</button>`;
     } else {
-      // 「レスト中」ラベル＋残り時間＋細い進捗ライン。説明はここに書かず設定に置く(ミニマル維持)
+      // 「レスト中」ラベル＋残り時間＋細い進捗ライン。操作は +30秒 / ⏸(▶) / ✕ の3つ
       const pct = timer.total ? (timer.remain / timer.total * 100) : 0;
-      bar.innerHTML = `<span class="tl1">${t('rest_now')}</span>
+      bar.innerHTML = `<span class="tl1">${t(timer.paused ? 'rest_paused' : 'rest_now')}</span>
         <span class="t">${Data.fmtClock(timer.remain)}</span><div class="spacer"></div>
-        <button data-act="timer-add">${t('add30')}</button><button data-act="timer-skip">${t('skip')}</button>
+        <button data-act="timer-add">${t('add30')}</button>
+        <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? '▶' : '⏸'}</button>
+        <button data-act="timer-skip" aria-label="${t('delete')}">✕</button>
         <i class="tprog" style="width:${pct.toFixed(1)}%"></i>`;
     }
   }
@@ -1334,6 +1348,7 @@
     },
 
     'rest-start': () => startTimer(S().restDefault),
+    'timer-pause': () => pauseResumeTimer(),
     'timer-add': () => { timer.remain += 30; timer.total += 30; if (!timer.id && !timer.done) startTimer(timer.remain); else if (timer.done) { timer.done = false; startTimer(timer.remain); } syncTimerBar(); },
     'timer-skip': () => clearTimer(),
     'timer-dismiss': () => clearTimer(),

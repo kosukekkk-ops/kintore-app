@@ -227,8 +227,9 @@ const Data = (() => {
       ex_removed: '種目を削除しました', ex_del_confirm: '「{name}」を削除しますか？記録したセットも消えます。',
       // timer
       rest: 'レスト', rest_done: '休憩おわり！次のセットへ 💪', ok: 'OK', skip: 'スキップ',
-      rest_now: 'レスト中', add30: '+30秒', rest_start: '⏱ レスト',
-      rest_hint: 'セットの「✓」を押すと休憩タイマーが自動で始まります（下の緑のバー）。手動で始めるときは種目の「⏱ レスト」、延長は「+30秒」、終了は「スキップ」。',
+      rest_now: 'レスト中', rest_paused: '一時停止中', add30: '+30秒', rest_start: '⏱ レスト',
+      pause_lbl: '一時停止', resume_lbl: '再開',
+      rest_hint: 'セットの「✓」を押すと休憩タイマーが自動で始まります（下のバー）。手動で始めるときは種目の「⏱ レスト」。バーの「+30秒」で延長、「⏸」で一時停止、「✕」で削除できます。',
       // history
       h_history: '履歴', all_records: 'すべての記録（{n}件）', history_empty: '完了したワークアウトがここに表示されます。',
       col_exercises: '種目', col_sets2: 'セット', col_total: '総量', edit_resume: '編集・再開', del_confirm: 'このワークアウトを削除しますか？',
@@ -300,8 +301,9 @@ const Data = (() => {
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
       ex_removed: 'Exercise removed', ex_del_confirm: 'Delete "{name}"? Its logged sets will be removed too.',
       rest: 'Rest', rest_done: 'Rest over — next set 💪', ok: 'OK', skip: 'Skip',
-      rest_now: 'REST', add30: '+30s', rest_start: '⏱ Rest',
-      rest_hint: 'The rest timer starts automatically when you tap ✓ on a set (the bar at the bottom). Tap "⏱ Rest" on an exercise to start it manually; "+30s" extends, "Skip" ends it.',
+      rest_now: 'REST', rest_paused: 'PAUSED', add30: '+30s', rest_start: '⏱ Rest',
+      pause_lbl: 'Pause', resume_lbl: 'Resume',
+      rest_hint: 'The rest timer starts automatically when you tap ✓ on a set (the bar at the bottom). Tap "⏱ Rest" on an exercise to start it manually; "+30s" extends, "⏸" pauses, "✕" removes it.',
       h_history: 'History', all_records: 'All records ({n})', history_empty: 'Completed workouts will appear here.',
       col_exercises: 'exercises', col_sets2: 'sets', col_total: 'total', edit_resume: 'Edit / resume', del_confirm: 'Delete this workout?',
       h_graph: 'Graph', graph_empty: 'Record a workout to see progress per exercise here', exercise: 'Exercise',

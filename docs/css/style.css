@@ -299,6 +299,11 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 .timer-bar .tl1 { font: 700 10px var(--font-num); letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
 .timer-bar .t { font-family: var(--font-mono); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .timer-bar .tprog { position: absolute; left: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.30); transition: width 1s linear; }
+/* 一時停止中はバーを落ち着かせて状態を伝える */
+.timer-bar.paused { opacity: .85; }
+.timer-bar.paused .t { opacity: .7; }
+/* バー表示中は本文の下余白を広げる(最下段の入力・保存ボタンが隠れないように) */
+body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
 .timer-bar button { background: rgba(0,0,0,.16); border: none; color: var(--on-accent); border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .timer-bar.done { background: var(--ok); }
 
