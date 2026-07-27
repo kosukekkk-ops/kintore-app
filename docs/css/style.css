@@ -304,6 +304,32 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 .timer-bar.paused .t { opacity: .7; }
 /* バー表示中は本文の下余白を広げる(最下段の入力・保存ボタンが隠れないように) */
 body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
+.timer-bar[data-act] { cursor: pointer; }
+
+/* ---------- レストタイマー大表示(Timer Plus風の全画面) ---------- */
+.timer-big {
+  position: fixed; inset: 0; z-index: 35;
+  background: var(--accent); color: var(--on-accent);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  animation: fade .18s ease;
+}
+.timer-big .tb-label { font: 700 13px var(--font-num); letter-spacing: .3em; text-transform: uppercase; opacity: .7; }
+.timer-big .tb-time {
+  font-family: var(--font-mono); font-weight: 700; line-height: 1.05;
+  font-size: min(31vw, 190px); font-variant-numeric: tabular-nums; letter-spacing: -.03em;
+}
+.timer-big .tb-controls { display: flex; gap: 12px; margin-top: 30px; }
+.timer-big .tb-controls button {
+  background: rgba(0,0,0,.15); border: none; color: var(--on-accent);
+  border-radius: 13px; padding: 14px 22px; font: 700 16px var(--font-num); cursor: pointer;
+}
+.timer-big .tb-min {
+  position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 16px;
+  background: rgba(0,0,0,.15); border: none; color: var(--on-accent);
+  width: 42px; height: 42px; border-radius: 13px; font-size: 19px; cursor: pointer;
+}
+.timer-big .tprog { position: absolute; left: 0; bottom: 0; height: 6px; background: rgba(0,0,0,.28); transition: width 1s linear; }
+.timer-big.paused .tb-time { opacity: .65; }
 .timer-bar button { background: rgba(0,0,0,.16); border: none; color: var(--on-accent); border-radius: 8px; padding: 8px 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .timer-bar.done { background: var(--ok); }
 

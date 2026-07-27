@@ -923,6 +923,7 @@
   }
   function startTimer(sec) {
     timer.total = sec; timer.remain = sec; timer.done = false; timer.paused = false;
+    timer.min = false; // 大表示設定なら開始のたびに大きく出す(前回の縮小は引き継がない)
     tickStart();
     syncTimerBar();
   }
@@ -936,23 +937,47 @@
   }
   function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
   function syncTimerBar() {
-    let bar = $('#timer-bar');
+    let bar = $('#timer-bar'), big = $('#timer-big');
     const show = timer.id || timer.done || timer.paused;
-    // バーの分だけ本文の下余白を広げ、最下段のセット行や保存ボタンが隠れないようにする
-    document.body.classList.toggle('has-timer', !!show);
-    if (!show) { if (bar) bar.remove(); return; }
+    if (!show) {
+      document.body.classList.remove('has-timer');
+      if (bar) bar.remove(); if (big) big.remove();
+      return;
+    }
+    const pct = timer.total ? (timer.remain / timer.total * 100) : 0;
+    const controls = timer.done
+      ? `<button data-act="timer-dismiss">${t('ok')}</button>`
+      : `<button data-act="timer-add">${t('add30')}</button>
+         <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? '▶' : '⏸'}</button>
+         <button data-act="timer-skip" aria-label="${t('delete')}">✕</button>`;
+    const label = t(timer.done ? 'rest_done' : (timer.paused ? 'rest_paused' : 'rest_now'));
+
+    // 大表示(Timer Plus風の全画面)。設定が large かつ縮小(▾)していない間はこちら
+    const useBig = S().timerStyle !== 'compact' && !timer.min;
+    if (useBig) {
+      document.body.classList.remove('has-timer');
+      if (bar) bar.remove();
+      if (!big) { big = document.createElement('div'); big.id = 'timer-big'; document.body.appendChild(big); }
+      big.className = 'timer-big' + (timer.done ? ' done' : '') + (timer.paused ? ' paused' : '');
+      big.innerHTML = `<button class="tb-min" data-act="timer-min" aria-label="${t('minimize_lbl')}">▾</button>
+        <div class="tb-label">${label}</div>
+        <div class="tb-time">${Data.fmtClock(timer.remain)}</div>
+        <div class="tb-controls">${controls}</div>
+        <i class="tprog" style="width:${pct.toFixed(1)}%"></i>`;
+      return;
+    }
+
+    // 小表示(下部バー)。バー本体タップで大表示に戻せる(設定が large のときのみ)
+    if (big) big.remove();
+    document.body.classList.add('has-timer'); // バーの分だけ本文の下余白を広げる
     if (!bar) { bar = document.createElement('div'); bar.id = 'timer-bar'; document.body.appendChild(bar); }
     bar.className = 'timer-bar' + (timer.done ? ' done' : '') + (timer.paused ? ' paused' : '');
+    if (S().timerStyle !== 'compact') bar.setAttribute('data-act', 'timer-expand'); else bar.removeAttribute('data-act');
     if (timer.done) {
-      bar.innerHTML = `<span class="t" style="font-size:16px">${t('rest_done')}</span><div class="spacer"></div><button data-act="timer-dismiss">${t('ok')}</button>`;
+      bar.innerHTML = `<span class="t" style="font-size:16px">${label}</span><div class="spacer"></div>${controls}`;
     } else {
-      // 「レスト中」ラベル＋残り時間＋細い進捗ライン。操作は +30秒 / ⏸(▶) / ✕ の3つ
-      const pct = timer.total ? (timer.remain / timer.total * 100) : 0;
-      bar.innerHTML = `<span class="tl1">${t(timer.paused ? 'rest_paused' : 'rest_now')}</span>
-        <span class="t">${Data.fmtClock(timer.remain)}</span><div class="spacer"></div>
-        <button data-act="timer-add">${t('add30')}</button>
-        <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? '▶' : '⏸'}</button>
-        <button data-act="timer-skip" aria-label="${t('delete')}">✕</button>
+      bar.innerHTML = `<span class="tl1">${label}</span>
+        <span class="t">${Data.fmtClock(timer.remain)}</span><div class="spacer"></div>${controls}
         <i class="tprog" style="width:${pct.toFixed(1)}%"></i>`;
     }
   }
@@ -1264,6 +1289,9 @@
       <div class="row"><span class="spacer">${t('rest_auto')}</span>
         <div class="seg" style="width:120px"><button class="${s.restAuto ? 'active' : ''}" data-act="set-restauto" data-v="1">${t('on')}</button>
         <button class="${!s.restAuto ? 'active' : ''}" data-act="set-restauto" data-v="0">${t('off')}</button></div></div>
+      <div class="row mt"><span class="spacer">${t('timer_style')}</span>
+        <div class="seg" style="width:160px"><button class="${s.timerStyle !== 'compact' ? 'active' : ''}" data-act="set-timerstyle" data-v="large">${t('ts_large')}</button>
+        <button class="${s.timerStyle === 'compact' ? 'active' : ''}" data-act="set-timerstyle" data-v="compact">${t('ts_small')}</button></div></div>
       <p class="muted small mt">${t('rest_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_data')}</h2>
       <button class="btn secondary mb" data-act="export">${t('export_btn')}</button>
@@ -1349,6 +1377,9 @@
 
     'rest-start': () => startTimer(S().restDefault),
     'timer-pause': () => pauseResumeTimer(),
+    'timer-min': () => { timer.min = true; syncTimerBar(); },
+    'timer-expand': () => { if (S().timerStyle !== 'compact') { timer.min = false; syncTimerBar(); } },
+    'set-timerstyle': (d) => { Store.setSettings({ timerStyle: d.v === 'compact' ? 'compact' : 'large' }); timer.min = false; syncTimerBar(); render(); },
     'timer-add': () => { timer.remain += 30; timer.total += 30; if (!timer.id && !timer.done) startTimer(timer.remain); else if (timer.done) { timer.done = false; startTimer(timer.remain); } syncTimerBar(); },
     'timer-skip': () => clearTimer(),
     'timer-dismiss': () => clearTimer(),
