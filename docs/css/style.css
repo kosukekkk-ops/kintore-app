@@ -155,6 +155,14 @@ nav.tabbar button.active svg { transform: scale(1.06); }
 .mini .n { font: 700 17px var(--font-num); }
 .mini .l { font-size: 9px; color: var(--text-dim); }
 .sec-lbl { font: 600 11px var(--font-num); letter-spacing: .12em; color: var(--text-dim); margin: 22px 0 10px; text-transform: uppercase; }
+/* 3本柱カード(睡眠・食事)。運動はリングが担うので2枚で1行 */
+.pillars { display: flex; gap: 8px; margin-top: 16px; }
+.pillar { flex: 1; min-width: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 11px 14px; cursor: pointer; transition: transform .1s; }
+.pillar:active { transform: scale(.98); }
+.pillar .pi-l { font: 600 10px var(--font-num); letter-spacing: .08em; color: var(--text-dim); margin-bottom: 3px; }
+.pillar .pi-v { font: 700 15px var(--font-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pillar .pi-v.dim { color: var(--text-mute); font-weight: 600; font-size: 13px; }
+.pillar .stars { color: var(--warn); font-size: 11px; letter-spacing: 1px; }
 .menu-list { display: flex; flex-direction: column; gap: 8px; }
 .menu-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 13px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform .1s; }
 .menu-card:active { transform: scale(.99); }

@@ -158,6 +158,22 @@
       </div>
     </div>`;
 
+    // 今日の3本柱: 運動(上のリング)に加えて睡眠・食事を同じ画面に置く。
+    // 未記録ならタップで体調タブの今日の入力へ直行(一元管理の入口)。
+    const todayLog = Store.getLog(todayK) || {};
+    const sleepV = todayLog.sleepHours
+      ? `${Data.fmtNum(todayLog.sleepHours)}h${todayLog.sleepQuality ? ` <span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : ''}`
+      : '';
+    const foodParts = [];
+    if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
+    if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+    h += `<div class="pillars">
+      <div class="pillar" data-act="go-cond-today"><div class="pi-l">😴 ${t('p_sleep')}</div>
+        <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
+      <div class="pillar" data-act="go-cond-today"><div class="pi-l">🍗 ${t('p_food')}</div>
+        <div class="pi-v ${foodParts.length ? '' : 'dim'}">${foodParts.join(' · ') || t('p_log')}</div></div>
+    </div>`;
+
     // 今日のメニュー
     h += `<div class="sec-lbl">${active ? t('sec_today_menu') : (menu.length ? t('sec_recommend') : t('sec_menu'))}</div>`;
     if (menu.length) {
@@ -1455,6 +1471,8 @@
     'tpl-delete': () => confirmSheet(t('tpl_del_confirm'), () => { if (state.menu.draft.id) Store.deleteTemplate(state.menu.draft.id); state.menu.screen = 'list'; closeSheet(); render(); }),
 
     'cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; render(); },
+    // ホームの睡眠/食事カードから: 体調タブへ移動して今日の入力を開く
+    'go-cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; switchTab('condition'); },
     'cond-edit': (d) => { state.cond.date = d.date; condQuality = (Store.getLog(d.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; render(); },
     'cond-back': () => { state.cond.screen = 'list'; render(); },
     'c-quality': (d) => { condQuality = +d.v; $$('#sleep-q button').forEach(b => b.classList.toggle('active', +b.dataset.v === condQuality)); },

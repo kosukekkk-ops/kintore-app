@@ -205,6 +205,7 @@ const Data = (() => {
       ring_goal: '目標達成', m_streak: '連続日', m_done: '完了', rec_badge: '記録中',
       sec_today_menu: '今日のメニュー', sec_recommend: 'おすすめメニュー', sec_menu: 'メニュー',
       cta_log_sets: 'セットを記録する', cta_start_tpl: '{name} を開始', cta_start_workout: 'ワークアウトを開始',
+      p_sleep: '睡眠', p_food: '食事', p_log: '＋ 記録する',
       first_workout: '最初のワークアウト', tap_to_start: 'タップして開始', q_empty_start: '＋ 空で開始', unit_min: '分',
       // 進行中セッションの衝突・復帰
       active_exists_title: '進行中のワークアウトがあります',
@@ -287,6 +288,7 @@ const Data = (() => {
       ring_goal: 'of goal', m_streak: 'day streak', m_done: 'done', rec_badge: 'RECORDING',
       sec_today_menu: "Today's menu", sec_recommend: 'Suggested menu', sec_menu: 'Menu',
       cta_log_sets: 'Log your sets', cta_start_tpl: 'Start {name}', cta_start_workout: 'Start a workout',
+      p_sleep: 'Sleep', p_food: 'Food', p_log: '+ Log',
       first_workout: 'Your first workout', tap_to_start: 'Tap to start', q_empty_start: '＋ Blank start', unit_min: 'min',
       active_exists_title: 'A workout is already in progress',
       active_exists_msg: '"{name}" is in progress ({n} exercises). Choose what to do before starting a new one.',
