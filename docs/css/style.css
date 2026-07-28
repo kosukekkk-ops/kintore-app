@@ -306,22 +306,31 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
 .timer-bar[data-act] { cursor: pointer; }
 
-/* ---------- インターバル開始ボタン(記録画面のフローティングピル) ---------- */
-#int-fab {
-  position: fixed; right: 16px;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 14px);
-  z-index: 25;
-  background: var(--accent); color: var(--on-accent); border: none;
-  border-radius: 999px; padding: 13px 20px;
-  font: 700 14px var(--font-num); cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.45);
-  animation: fade .18s ease;
+/* ---------- 記録画面の下部固定アクションバー(破棄/保存/▶インターバル) ---------- */
+#session-abar {
+  position: fixed; left: 0; right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 24; padding: 14px 16px 10px;
+  background: linear-gradient(to top, var(--bg) 72%, transparent);
+  pointer-events: none; /* グラデ部分はスクロール操作を邪魔しない */
 }
-#int-fab .sec { font-family: var(--font-mono); font-weight: 700; opacity: .7; }
-#int-fab:active { transform: scale(.97); }
-/* ボタンの分だけ本文の下余白を広げる(最下段の入力・保存ボタンが隠れないように) */
-body.has-fab #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 74px); }
+#session-abar .abar-in { display: flex; gap: 10px; max-width: 608px; margin: 0 auto; }
+#session-abar .abar-in > * { pointer-events: auto; }
+#session-abar .btn { flex: 1; min-width: 0; }
+#session-abar .btn.small { flex: 0 0 auto; white-space: nowrap; }
+#session-abar .abar-int {
+  flex: 0 0 auto; background: var(--accent); color: var(--on-accent); border: none;
+  border-radius: 14px; padding: 0 18px;
+  font: 700 14px var(--font-num); cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+}
+#session-abar .abar-int .sec { font-family: var(--font-mono); font-weight: 700; }
+#session-abar .abar-int:active { transform: scale(.97); }
+/* バーの分だけ本文の下余白を広げる(最下段の入力が隠れないように) */
+body.has-abar #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 92px); }
+/* レストの小バーはアクションバーの上に積む */
+body.has-abar .timer-bar { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px); }
+body.has-abar.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 158px); }
 
 /* ---------- レストタイマー大表示(Timer Plus風の全画面) ---------- */
 .timer-big {

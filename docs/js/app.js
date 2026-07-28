@@ -323,10 +323,7 @@
     h += `<button class="btn secondary" data-act="pick-ex">${t('add_exercise')}</button>`;
     h += `<label class="field mt"><span class="lab">${t('session_note')}</span>
       <textarea data-in="snote" placeholder="${t('session_note_ph')}">${esc(s.note || '')}</textarea></label>`;
-    const showDiscard = state.wo.backTo !== 'history';
-    h += `<div class="row mt">
-      ${showDiscard ? `<button class="btn danger small" data-act="discard-session">${t('discard')}</button>` : ''}
-      <button class="btn" data-act="finish-session">${s.done ? t('save_do') : t('finish_save')}</button></div>`;
+    // 破棄/保存/インターバルは下部固定のアクションバー(syncSessionBar)に出す
     return h;
   }
 
@@ -934,25 +931,31 @@
     syncTimerBar();
   }
   function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
-  // 「▶ インターバル」開始ボタン(記録画面に常設のフローティングピル)。
-  // タイマー起動の主導線。タイマー表示中は重複するので消す。
-  function syncIntervalFab(timerShown) {
-    let fab = $('#int-fab');
-    const want = !timerShown && state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
-    document.body.classList.toggle('has-fab', want);
-    if (!want) { if (fab) fab.remove(); return; }
-    if (!fab) {
-      fab = document.createElement('button');
-      fab.id = 'int-fab'; fab.setAttribute('data-act', 'rest-start');
-      document.body.appendChild(fab);
+  // 記録画面の下部固定アクションバー(破棄 / 完了して保存 / ▶ インターバル)。
+  // 固定にすることでスクロール中に浮きボタンが本文と重ならない。
+  // タイマー表示中はインターバルボタンだけ隠す(バー/大表示と役割が重複するため)。
+  function syncSessionBar(timerShown) {
+    let abar = $('#session-abar');
+    const want = state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
+    document.body.classList.toggle('has-abar', want);
+    if (!want) { if (abar) abar.remove(); return; }
+    if (!abar) {
+      abar = document.createElement('div');
+      abar.id = 'session-abar';
+      document.body.appendChild(abar);
     }
-    fab.innerHTML = `▶ ${t('int_fab')} <span class="sec">${Data.fmtClock(S().restDefault)}</span>`;
+    const showDiscard = state.wo.backTo !== 'history';
+    abar.innerHTML = `<div class="abar-in">
+      ${showDiscard ? `<button class="btn danger small" data-act="discard-session">${t('discard')}</button>` : ''}
+      <button class="btn" data-act="finish-session">${cur.done ? t('save_do') : t('finish_save')}</button>
+      ${timerShown ? '' : `<button class="abar-int" data-act="rest-start" aria-label="${t('int_fab')}">▶ <span class="sec">${Data.fmtClock(S().restDefault)}</span></button>`}
+    </div>`;
   }
 
   function syncTimerBar() {
     let bar = $('#timer-bar'), big = $('#timer-big');
     const show = timer.id || timer.done || timer.paused;
-    syncIntervalFab(!!show);
+    syncSessionBar(!!show);
     if (!show) {
       document.body.classList.remove('has-timer');
       if (bar) bar.remove(); if (big) big.remove();
