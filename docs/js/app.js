@@ -360,9 +360,7 @@
     const foot = cardio
       ? `<button class="link-btn" data-act="add-set" data-ex="${ei}">${t('add_set')}</button>`
       : `<button class="link-btn" data-act="add-set" data-ex="${ei}">${t('add_set')}</button>
-         <button class="link-btn warm" data-act="add-warm" data-ex="${ei}">${t('add_warm')}</button>
-         <span class="spacer"></span>
-         <button class="link-btn dim" data-act="rest-start">${t('rest_start')}</button>`;
+         <button class="link-btn warm" data-act="add-warm" data-ex="${ei}">${t('add_warm')}</button>`;
     return `<div class="ex-block">
       <div class="ex-head">
         <span class="name">${esc(exName(ex))}</span>
@@ -936,9 +934,25 @@
     syncTimerBar();
   }
   function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
+  // 「▶ インターバル」開始ボタン(記録画面に常設のフローティングピル)。
+  // タイマー起動の主導線。タイマー表示中は重複するので消す。
+  function syncIntervalFab(timerShown) {
+    let fab = $('#int-fab');
+    const want = !timerShown && state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
+    document.body.classList.toggle('has-fab', want);
+    if (!want) { if (fab) fab.remove(); return; }
+    if (!fab) {
+      fab = document.createElement('button');
+      fab.id = 'int-fab'; fab.setAttribute('data-act', 'rest-start');
+      document.body.appendChild(fab);
+    }
+    fab.innerHTML = `▶ ${t('int_fab')} <span class="sec">${Data.fmtClock(S().restDefault)}</span>`;
+  }
+
   function syncTimerBar() {
     let bar = $('#timer-bar'), big = $('#timer-big');
     const show = timer.id || timer.done || timer.paused;
+    syncIntervalFab(!!show);
     if (!show) {
       document.body.classList.remove('has-timer');
       if (bar) bar.remove(); if (big) big.remove();
@@ -1636,6 +1650,9 @@
   /* ============ 起動 ============ */
   function boot() {
     Store.ensureSeed();
+    // タイマー起動を「▶ インターバル」ボタン主導へ変更した際の一回きり移行:
+    // 既存ユーザーの自動スタートもOFFに揃える(設定でいつでも戻せる)
+    if (!S().intervalBtnMig) Store.setSettings({ intervalBtnMig: 1, restAuto: false });
     applyAccent();
     relabelTabs();
     document.body.addEventListener('click', onClick);

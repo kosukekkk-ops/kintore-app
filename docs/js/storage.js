@@ -34,7 +34,8 @@ const Store = (() => {
     return Date.now().toString(36) + '-' + seq.toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 90, restAuto: true, goalVolume: 5000, timerStyle: 'large' };
+  // restAuto は既定OFF: タイマーは記録画面の「▶ インターバル」ボタンで開始するのが主導線
+  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 90, restAuto: false, goalVolume: 5000, timerStyle: 'large' };
 
   return {
     uid,
