@@ -1664,6 +1664,26 @@
     document.body.addEventListener('click', onClick);
     document.body.addEventListener('input', onInput);
     $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    // ソフトキーボード対策(iOS):
+    // ボトムシートは画面下端に固定のため、キーボードが出ると入力欄が隠れて
+    // タップしてもカーソルが見えない。キーボードの高さを --kb に反映して
+    // シートを持ち上げ、フォーカスした入力欄をシート内で中央へスクロールする。
+    if (window.visualViewport) {
+      const vv = window.visualViewport;
+      const adjustKb = () => {
+        const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        document.documentElement.style.setProperty('--kb', kb + 'px');
+      };
+      vv.addEventListener('resize', adjustKb);
+      vv.addEventListener('scroll', adjustKb);
+    }
+    document.body.addEventListener('focusin', (e) => {
+      const el = e.target;
+      if (!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      if (!el.closest('.sheet')) return;
+      // キーボード表示が落ち着いてからスクロール(即時だと高さ確定前で効かない)
+      setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) { /* 古いWebViewは無視 */ } }, 300);
+    });
     // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
     pushBackTrap();
     window.addEventListener('popstate', () => { if (goBackOne()) pushBackTrap(); });

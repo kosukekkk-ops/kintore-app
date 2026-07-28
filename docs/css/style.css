@@ -394,10 +394,12 @@ body.has-abar.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-a
 .chart-wrap svg { width: 100%; height: auto; display: block; }
 
 /* ---------- modal sheet ---------- */
-.sheet-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(6,10,18,.6); display: flex; align-items: flex-end; animation: fade .2s ease; }
+/* --kb はソフトキーボードの高さ(app.jsのvisualViewport監視が設定)。
+   シートを持ち上げて入力欄がキーボードに隠れないようにする */
+.sheet-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(6,10,18,.6); display: flex; align-items: flex-end; animation: fade .2s ease; padding-bottom: var(--kb, 0px); }
 .sheet {
   background: var(--bg-card); border-top-left-radius: 20px; border-top-right-radius: 20px;
-  width: 100%; max-width: 640px; margin: 0 auto; max-height: 88vh; overflow-y: auto;
+  width: 100%; max-width: 640px; margin: 0 auto; max-height: calc(88vh - var(--kb, 0px)); overflow-y: auto;
   padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); animation: slideup .25s ease;
 }
 @keyframes slideup { from { transform: translateY(100%);} to { transform: none; } }
