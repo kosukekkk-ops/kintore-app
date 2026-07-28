@@ -1656,6 +1656,9 @@
     // タイマー起動を「▶ インターバル」ボタン主導へ変更した際の一回きり移行:
     // 既存ユーザーの自動スタートもOFFに揃える(設定でいつでも戻せる)
     if (!S().intervalBtnMig) Store.setSettings({ intervalBtnMig: 1, restAuto: false });
+    // 既定休憩を90秒→180秒(3分)へ変更した際の一回きり移行。
+    // 旧既定の90のまま(=カスタムしていない)ユーザーだけ新既定へ揃える
+    if (!S().rest180Mig) Store.setSettings(S().restDefault === 90 ? { rest180Mig: 1, restDefault: 180 } : { rest180Mig: 1 });
     applyAccent();
     relabelTabs();
     document.body.addEventListener('click', onClick);
