@@ -141,11 +141,18 @@ const Data = (() => {
   const unitLabel = (unit) => (unit === 'lbs' ? 'lbs' : 'kg');
   function fmtNum(n) { if (n == null || isNaN(n)) return '0'; return String(round1(n)); }
 
-  /* ---------- 集計(有酸素セットは weight/reps を持たないので自然に0) ---------- */
+  /* ---------- 集計(有酸素セットは weight/reps を持たないので自然に0) ----------
+   * 総量のルール:
+   *  - 記録中(未完了)のセッション: ✓を付けたセットだけ数える(=今日の進捗)
+   *  - 保存済みセッション: 値の入ったセットは✓が無くても数える
+   *    (✓を付け忘れて保存した過去データが0kgになるのを防ぐ。保存時には
+   *     ✓なしセットの扱いを確認するので、新しいデータは常に明確) */
   function sessionVolumeKg(session) {
     let v = 0;
     (session.exercises || []).forEach(we => (we.sets || []).forEach(s => {
-      if (!s.warmup && s.done && typeof s.weight === 'number') v += (s.weight || 0) * (s.reps || 0);
+      if (s.warmup) return;
+      if (!session.done && !s.done) return;
+      if (typeof s.weight === 'number') v += (s.weight || 0) * (s.reps || 0);
     }));
     return v;
   }
@@ -216,6 +223,8 @@ const Data = (() => {
       session_note: 'セッションメモ', session_note_ph: '全体の気づき・体調など', discard: '破棄', finish_save: '完了して保存', save_do: '保存する',
       col_set: '#', col_reps: '回', col_done: '済', col_min: '分', col_km: 'km', add_set: '＋ セット', add_warm: '＋ ウォームアップ',
       no_exercise_toast: '種目がありません', saved_workout: 'ワークアウトを保存しました 💪', discard_confirm: 'このワークアウトを破棄しますか？',
+      fu_msg: '完了チェック（✓）のないセットが{n}件あります。実施した扱いにしますか？',
+      fu_mark: '✓を付けて保存', fu_drop: '未実施として削除して保存',
       // picker
       pick_title: '種目を選ぶ', search_ph: '🔍 種目名・器具で検索', all: 'すべて', no_match: '該当する種目がありません', add_custom: '＋ カスタム種目を追加', recent_ex: '最近使った種目',
       about_ex: 'ⓘ この種目について', worked_muscles: '鍛える筋肉', bm_front: '正面', bm_back: '背面', pose_label: '動作イメージ', points_label: 'フォームのポイント',
@@ -294,6 +303,8 @@ const Data = (() => {
       session_note: 'Session note', session_note_ph: 'Overall notes, condition, etc.', discard: 'Discard', finish_save: 'Finish & save', save_do: 'Save',
       col_set: '#', col_reps: 'reps', col_done: '✓', col_min: 'min', col_km: 'km', add_set: '＋ Set', add_warm: '＋ Warm-up',
       no_exercise_toast: 'No exercises', saved_workout: 'Workout saved 💪', discard_confirm: 'Discard this workout?',
+      fu_msg: '{n} sets have no ✓ (done) mark. Count them as performed?',
+      fu_mark: 'Mark ✓ and save', fu_drop: 'Remove them and save',
       pick_title: 'Choose exercise', search_ph: '🔍 Search name or gear', all: 'All', no_match: 'No matching exercise', add_custom: '＋ Add custom exercise', recent_ex: 'Recently used',
       about_ex: 'ⓘ About this exercise', worked_muscles: 'Muscles worked', bm_front: 'Front', bm_back: 'Back', pose_label: 'Movement', points_label: 'Form tips',
       see_images: '🔍 See images (Google)', see_video: '▶ Watch video (YouTube)', info_ext_note: 'Images/videos open Google/YouTube in your browser.',

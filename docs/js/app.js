@@ -378,6 +378,33 @@
 
   function saveCur() { if (cur) Store.saveSession(cur); }
 
+  // 値の入ったセットか(筋トレ=重量or回数、有酸素=時間or距離)
+  function setHasValue(we, s) {
+    if (isCardio(we.exerciseId)) return !!(s.duration || s.distance);
+    return !!(s.weight || s.reps);
+  }
+  function eachUncheckedSet(fn) {
+    cur.exercises.forEach(we => we.sets.forEach(s => { if (!s.warmup && !s.done && setHasValue(we, s)) fn(s); }));
+  }
+  // 保存前に✓なしの実施セットが残っていないか確認する。
+  // 曖昧なまま保存すると総量・グラフの数字が実感とズレるため、ここで確定させる。
+  function tryFinishSession() {
+    if (!cur.exercises.length) { toast(t('no_exercise_toast')); return; }
+    let n = 0; eachUncheckedSet(() => { n++; });
+    if (!n) { doFinishSession(); return; }
+    showSheet(`<h2>${t('confirm')}</h2><p class="mb">${esc(t('fu_msg', { n }))}</p>
+      <button class="btn mb" data-act="fu-mark">${t('fu_mark')}</button>
+      <button class="btn secondary mb" data-act="fu-drop">${t('fu_drop')}</button>
+      <button class="btn secondary" data-act="sheet-close">${t('cancel')}</button>`);
+  }
+  function doFinishSession() {
+    cur.done = true; cur.finishedAt = new Date().toISOString(); Store.saveSession(cur);
+    clearTimer();
+    const back = state.wo.backTo; cur = null; state.wo.screen = 'home'; state.wo.backTo = null;
+    toast(t('saved_workout'));
+    if (back === 'history') switchTab('history'); else render();
+  }
+
   // 記録画面を閉じる。編集中の状態(cur/screen)も必ず畳んでおく。
   // 残したままだと記録タブへ戻った時に編集画面が復活し、戻る操作が一周してしまう。
   function closeSession() {
@@ -1158,7 +1185,8 @@
     sessions.filter(s => s.date >= sinceK).forEach(s => {
       s.exercises.forEach(we => {
         const ex = Store.exerciseById(we.exerciseId); if (!ex || Data.isCardioMuscle(ex.muscle)) return;
-        let v = 0; we.sets.forEach(set => { if (!set.warmup && set.done) v += (set.weight || 0) * (set.reps || 0); });
+        // 保存済みセッションのみ渡ってくるので、総量ルールに合わせて✓の有無は問わない
+        let v = 0; we.sets.forEach(set => { if (!set.warmup) v += (set.weight || 0) * (set.reps || 0); });
         byMuscle[ex.muscle] = (byMuscle[ex.muscle] || 0) + v;
       });
     });
@@ -1359,13 +1387,14 @@
     'ex-down': (d) => { const i = +d.ex; const a = cur.exercises; if (i < a.length - 1) { [a[i + 1], a[i]] = [a[i], a[i + 1]]; saveCur(); closeSheet(); render(); } },
     'ex-remove': (d) => removeExercise(+d.ex),
     'ex-del': (d) => removeExercise(+d.ex),
-    'finish-session': () => {
-      if (!cur.exercises.length) { toast(t('no_exercise_toast')); return; }
-      cur.done = true; cur.finishedAt = new Date().toISOString(); Store.saveSession(cur);
-      clearTimer();
-      const back = state.wo.backTo; cur = null; state.wo.screen = 'home'; state.wo.backTo = null;
-      toast(t('saved_workout'));
-      if (back === 'history') switchTab('history'); else render();
+    'finish-session': () => tryFinishSession(),
+    'fu-mark': () => { eachUncheckedSet((s) => { s.done = true; }); closeSheet(); doFinishSession(); },
+    'fu-drop': () => {
+      cur.exercises.forEach(we => { we.sets = we.sets.filter(s => s.warmup || s.done || !setHasValue(we, s)); });
+      cur.exercises = cur.exercises.filter(we => we.sets.length);
+      closeSheet();
+      if (!cur.exercises.length) { saveCur(); render(); toast(t('no_exercise_toast')); return; }
+      doFinishSession();
     },
     'discard-session': () => confirmSheet(t('discard_confirm'), () => {
       Store.deleteSession(cur.id); clearTimer();
