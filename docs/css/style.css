@@ -204,6 +204,13 @@ input[type="date"] { color-scheme: dark; }
   font-family: var(--font-mono); font-size: 12px; padding: 3px 8px; border-radius: 8px;
   width: auto; margin: 0;
 }
+/* iOSのdate入力は固有幅を持ち width:100% を無視してカードからはみ出すことがある。
+   外観を無効化し、親幅に収まるよう強制する */
+input[type="date"] {
+  -webkit-appearance: none; appearance: none;
+  min-width: 0; max-width: 100%; display: block; min-height: 45px;
+}
+.date-in[type="date"] { min-height: 0; display: inline-block; width: auto; }
 
 /* ---------- テーマ(アクセント色)選択 ---------- */
 .theme-grid { display: flex; gap: 10px; }
@@ -314,18 +321,18 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
 .timer-bar[data-act] { cursor: pointer; }
 
-/* ---------- 記録画面の下部固定アクションバー(破棄/保存/▶インターバル) ---------- */
-#session-abar {
+/* ---------- 下部固定アクションバー(記録画面/体調入力) ---------- */
+#session-abar, #cond-abar {
   position: fixed; left: 0; right: 0;
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   z-index: 24; padding: 14px 16px 10px;
   background: linear-gradient(to top, var(--bg) 72%, transparent);
   pointer-events: none; /* グラデ部分はスクロール操作を邪魔しない */
 }
-#session-abar .abar-in { display: flex; gap: 10px; max-width: 608px; margin: 0 auto; }
-#session-abar .abar-in > * { pointer-events: auto; }
-#session-abar .btn { flex: 1; min-width: 0; }
-#session-abar .btn.small { flex: 0 0 auto; white-space: nowrap; }
+#session-abar .abar-in, #cond-abar .abar-in { display: flex; gap: 10px; max-width: 608px; margin: 0 auto; }
+#session-abar .abar-in > *, #cond-abar .abar-in > * { pointer-events: auto; }
+#session-abar .btn, #cond-abar .btn { flex: 1; min-width: 0; }
+#session-abar .btn.small, #cond-abar .btn.small { flex: 0 0 auto; white-space: nowrap; }
 #session-abar .abar-int {
   flex: 0 0 auto; background: var(--accent); color: var(--on-accent); border: none;
   border-radius: 14px; padding: 0 18px;

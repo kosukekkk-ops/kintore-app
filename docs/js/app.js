@@ -974,31 +974,42 @@
     syncTimerBar();
   }
   function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
-  // 記録画面の下部固定アクションバー(破棄 / 完了して保存 / ▶ インターバル)。
-  // 固定にすることでスクロール中に浮きボタンが本文と重ならない。
-  // タイマー表示中はインターバルボタンだけ隠す(バー/大表示と役割が重複するため)。
-  function syncSessionBar(timerShown) {
+  // 下部固定アクションバー。固定にすることでスクロール中にボタンが本文と重ならない。
+  // - 記録画面: 破棄 / 完了して保存 / ▶ インターバル(タイマー表示中は隠す)
+  // - 体調入力: 削除(既存記録のみ) / 保存
+  function syncActionBars(timerShown) {
+    const wantWo = state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
+    const wantCond = state.tab === 'condition' && state.cond.screen === 'edit';
+    document.body.classList.toggle('has-abar', wantWo || wantCond);
+
     let abar = $('#session-abar');
-    const want = state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
-    document.body.classList.toggle('has-abar', want);
-    if (!want) { if (abar) abar.remove(); return; }
-    if (!abar) {
-      abar = document.createElement('div');
-      abar.id = 'session-abar';
-      document.body.appendChild(abar);
+    if (!wantWo) { if (abar) abar.remove(); }
+    else {
+      if (!abar) { abar = document.createElement('div'); abar.id = 'session-abar'; document.body.appendChild(abar); }
+      const showDiscard = state.wo.backTo !== 'history';
+      abar.innerHTML = `<div class="abar-in">
+        ${showDiscard ? `<button class="btn danger small" data-act="discard-session">${t('discard')}</button>` : ''}
+        <button class="btn" data-act="finish-session">${cur.done ? t('save_do') : t('finish_save')}</button>
+        ${timerShown ? '' : `<button class="abar-int" data-act="rest-start" aria-label="${t('int_fab')}">▶ <span class="sec">${Data.fmtClock(S().restDefault)}</span></button>`}
+      </div>`;
     }
-    const showDiscard = state.wo.backTo !== 'history';
-    abar.innerHTML = `<div class="abar-in">
-      ${showDiscard ? `<button class="btn danger small" data-act="discard-session">${t('discard')}</button>` : ''}
-      <button class="btn" data-act="finish-session">${cur.done ? t('save_do') : t('finish_save')}</button>
-      ${timerShown ? '' : `<button class="abar-int" data-act="rest-start" aria-label="${t('int_fab')}">▶ <span class="sec">${Data.fmtClock(S().restDefault)}</span></button>`}
-    </div>`;
+
+    let cbar = $('#cond-abar');
+    if (!wantCond) { if (cbar) cbar.remove(); }
+    else {
+      if (!cbar) { cbar = document.createElement('div'); cbar.id = 'cond-abar'; document.body.appendChild(cbar); }
+      const hasLog = !!Store.getLog(state.cond.date);
+      cbar.innerHTML = `<div class="abar-in">
+        ${hasLog ? `<button class="btn danger small" data-act="c-delete">${t('delete')}</button>` : ''}
+        <button class="btn" data-act="c-save">${t('save')}</button>
+      </div>`;
+    }
   }
 
   function syncTimerBar() {
     let bar = $('#timer-bar'), big = $('#timer-big');
     const show = timer.id || timer.done || timer.paused;
-    syncSessionBar(!!show);
+    syncActionBars(!!show);
     if (!show) {
       document.body.classList.remove('has-timer');
       if (bar) bar.remove(); if (big) big.remove();
@@ -1313,8 +1324,7 @@
       <label class="field"><span class="lab">${t('c_protein')}</span><input inputmode="numeric" data-in="c-protein" value="${l.protein != null ? l.protein : ''}" placeholder="120"></label>
       <label class="field"><span class="lab">${t('c_note')}</span><textarea data-in="c-note" placeholder="${t('c_note_ph')}">${esc(l.note || '')}</textarea></label>
     </div>`;
-    h += `<div class="row"><button class="btn" data-act="c-save">${t('save')}</button></div>`;
-    if (Store.getLog(date)) h += `<button class="btn danger mt" data-act="c-delete">${t('delete')}</button>`;
+    // 保存/削除は下部固定のアクションバー(syncActionBars)に出す
     return h;
   }
   let condQuality = 0;
