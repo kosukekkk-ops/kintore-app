@@ -321,6 +321,15 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
 .timer-bar[data-act] { cursor: pointer; }
 
+/* ---------- インラインSVGアイコン(絵文字の代替) ---------- */
+.ic { width: 15px; height: 15px; vertical-align: -2.5px; display: inline-block; flex: none; }
+.empty .ic { width: 34px; height: 34px; display: block; margin: 0 auto 10px; opacity: .45; }
+.ng-gear .ic { vertical-align: middle; }
+.timer-bar button .ic, .tb-controls button .ic { vertical-align: -2px; }
+.abar-int .ic { margin-right: 2px; }
+/* 柱カラーの小ドット(バランス画面のラベル用) */
+.dotc { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; flex: none; }
+
 /* ---------- 3本柱バランス(グラフタブ) ---------- */
 .bgrid { display: flex; flex-direction: column; gap: 10px; }
 .bg-row { display: flex; align-items: center; }

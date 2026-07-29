@@ -29,6 +29,19 @@
   }
   const muscleTag = (key) => `<span class="mtag ${Data.muscleMap[key] ? Data.muscleMap[key].cls : ''}">${esc(Data.muscleName(key))}</span>`;
 
+  /* ---- モノクロSVGアイコン(絵文字の代替。タブバーと同じストローク調) ---- */
+  const IC = {
+    dumb: '<path d="M4 9v6M7 6.5v11M17 6.5v11M20 9v6M7 12h10"/>',
+    chart: '<path d="M4 15l4.5-5 3.5 3.5L20 6M15.5 6H20v4.5"/>',
+    list: '<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.5" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="17" r="1.3" fill="currentColor" stroke="none"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    food: '<path d="M5 2.5v6.5a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2V2.5M8 11V21.5M8 2.5V7M19 14.5V2.5a4.5 4.5 0 0 0-4.5 4.5v5.5c0 1.1.9 2 2 2H19zM19 14.5v7"/>',
+    gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9"/>',
+    play: '<path d="M8.5 5.2v13.6L19 12z" fill="currentColor" stroke="none"/>',
+    pause: '<path d="M7.5 5.5h2.8v13H7.5zM13.7 5.5h2.8v13h-2.8z" fill="currentColor" stroke="none"/>'
+  };
+  const ic = (name, size) => `<svg class="ic"${size ? ` style="width:${size}px;height:${size}px"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[name]}</svg>`;
+
   /* ============ ボトムシート ============ */
   function showSheet(inner, opts) {
     opts = opts || {};
@@ -138,7 +151,7 @@
 
     // 歯車は記録中でも常に出す(設定へ到達できなくなるのを防ぐ)
     let h = `<div class="ng-top">${active ? `<span class="ng-rec">● ${t('rec_badge')}</span>` : ''}<div class="spacer"></div>
-      <button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">⚙️</button></div>`;
+      <button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">${ic('gear', 19)}</button></div>`;
     const subject = active ? (active.name || t('home_training')) : (menu.length && templates[0] ? templates[0].name : t('home_today'));
     const suffix = active ? t('suf_recording') : (menu.length ? t('suf_dayof') : t('suf_cheer'));
     h += `<div class="greet">${greetWord()}${t('greet_sep')}<b>${esc(subject)}</b>${suffix}</div>`;
@@ -168,9 +181,9 @@
     if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
     if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
     h += `<div class="pillars">
-      <div class="pillar" data-act="go-cond-today"><div class="pi-l">😴 ${t('p_sleep')}</div>
+      <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
         <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
-      <div class="pillar" data-act="go-cond-today"><div class="pi-l">🍗 ${t('p_food')}</div>
+      <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('food', 12)} ${t('p_food')}</div>
         <div class="pi-v ${foodParts.length ? '' : 'dim'}">${foodParts.join(' · ') || t('p_log')}</div></div>
     </div>`;
 
@@ -331,7 +344,7 @@
     </div></div>`;
 
     if (!s.exercises.length) {
-      h += `<div class="empty"><span class="big">💪</span>${t('empty_ex')}</div>`;
+      h += `<div class="empty">${ic('dumb')}${t('empty_ex')}</div>`;
     } else {
       s.exercises.forEach((we, ei) => { h += exerciseBlock(we, ei); });
     }
@@ -382,7 +395,7 @@
         <button class="kebab" data-act="ex-menu" data-ex="${ei}" aria-label="menu">⋯</button>
       </div>
       <table class="set-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
-      ${we.note ? `<div class="small muted" style="padding:0 14px 6px">📝 ${esc(we.note)}</div>` : ''}
+      ${we.note ? `<div class="small muted" style="padding:0 14px 6px">${esc(we.note)}</div>` : ''}
       <div class="ex-foot">${foot}</div>
     </div>`;
   }
@@ -924,7 +937,7 @@
     let html = '';
     if (picker.muscle === 'all') {
       const rec = recentExerciseIds(6).map(id => Store.exerciseById(id)).filter(Boolean);
-      if (rec.length) html += `<div class="pick-group">🕒 ${t('recent_ex')}</div>` + rec.map(e => pickRow(e, true)).join('');
+      if (rec.length) html += `<div class="pick-group">${t('recent_ex')}</div>` + rec.map(e => pickRow(e, true)).join('');
       Data.MUSCLES.forEach(m => {
         const items = all.filter(e => e.muscle === m.key).sort((a, b) => a.order - b.order);
         if (items.length) html += `<div class="pick-group">${esc(Data.muscleName(m.key))}</div>` + renderWithSubs(items);
@@ -990,7 +1003,7 @@
       abar.innerHTML = `<div class="abar-in">
         ${showDiscard ? `<button class="btn danger small" data-act="discard-session">${t('discard')}</button>` : ''}
         <button class="btn" data-act="finish-session">${cur.done ? t('save_do') : t('finish_save')}</button>
-        ${timerShown ? '' : `<button class="abar-int" data-act="rest-start" aria-label="${t('int_fab')}">▶ <span class="sec">${Data.fmtClock(S().restDefault)}</span></button>`}
+        ${timerShown ? '' : `<button class="abar-int" data-act="rest-start" aria-label="${t('int_fab')}">${ic('play', 13)}<span class="sec">${Data.fmtClock(S().restDefault)}</span></button>`}
       </div>`;
     }
 
@@ -1019,7 +1032,7 @@
     const controls = timer.done
       ? `<button data-act="timer-dismiss">${t('ok')}</button>`
       : `<button data-act="timer-add">${t('add30')}</button>
-         <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? '▶' : '⏸'}</button>
+         <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? ic('play', 15) : ic('pause', 15)}</button>
          <button data-act="timer-skip" aria-label="${t('delete')}">✕</button>`;
     const label = t(timer.done ? 'rest_done' : (timer.paused ? 'rest_paused' : 'rest_now'));
 
@@ -1062,7 +1075,7 @@
     const byDate = {};
     sessions.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
 
-    let h = `<div class="head"><h1>📅 ${t('h_history')}</h1></div>`;
+    let h = `<div class="head"><h1>${t('h_history')}</h1></div>`;
     h += `<div class="card"><div class="cal-head">
       <button data-act="cal-prev" aria-label="prev">‹</button><div class="m">${Data.fmtMonthYear(y, m)}</div><button data-act="cal-next" aria-label="next">›</button>
     </div><div class="cal-grid">`;
@@ -1122,10 +1135,10 @@
         ? `<div class="small" style="color:var(--text-dim)">${i + 1}. ${Data.fmtNum(set.duration)}${t('col_min')} / ${Data.fmtNum(set.distance)}km ${set.done ? '✓' : ''}</div>`
         : `<div class="small" style="color:var(--text-dim)">${set.warmup ? 'W' : setNumber(we, i)}. ${disp(set.weight)}${uLab()} × ${set.reps || 0}${t('col_reps')} ${set.done ? '✓' : ''}</div>`
       ).join('');
-      if (we.note) h += `<div class="small muted">📝 ${esc(we.note)}</div>`;
+      if (we.note) h += `<div class="small muted">${esc(we.note)}</div>`;
       h += `</div>`;
     });
-    if (s.note) h += `<div class="hr"></div><div class="small">📝 ${esc(s.note)}</div>`;
+    if (s.note) h += `<div class="hr"></div><div class="small">${esc(s.note)}</div>`;
     h += `</div>`;
     h += `<div class="row"><button class="btn secondary" data-act="edit-session" data-id="${s.id}">${t('edit_resume')}</button>
       <button class="btn danger" data-act="del-session" data-id="${s.id}">${t('delete')}</button></div>`;
@@ -1135,7 +1148,7 @@
   /* ============ グラフタブ ============ */
   function renderGraph() {
     const sessions = Store.getSessions().filter(s => s.done);
-    let h = `<div class="head"><h1>📈 ${t('h_graph')}</h1></div>`;
+    let h = `<div class="head"><h1>${t('h_graph')}</h1></div>`;
     // 一元管理の要: まず3本柱のバランス、掘り下げたい人は種目別へ
     if (!state.graph.view) state.graph.view = 'balance';
     h += `<div class="seg mb">
@@ -1143,7 +1156,7 @@
       <button class="${state.graph.view === 'exercise' ? 'active' : ''}" data-act="graph-view" data-v="exercise">${t('g_by_exercise')}</button>
     </div>`;
     if (state.graph.view === 'balance') return h + renderBalance(sessions);
-    if (!sessions.length) { h += `<div class="empty"><span class="big">📈</span>${t('graph_empty')}</div>`; return h; }
+    if (!sessions.length) { h += `<div class="empty">${ic('chart')}${t('graph_empty')}</div>`; return h; }
 
     const usedIds = new Set();
     sessions.forEach(s => s.exercises.forEach(we => usedIds.add(we.exerciseId)));
@@ -1223,7 +1236,7 @@
     const logByDate = {};
     Store.getLogs().forEach(l => { logByDate[l.date] = l; });
     if (!Object.keys(volByDate).length && !Object.keys(logByDate).length) {
-      return `<div class="empty"><span class="big">🏋️😴🍗</span>${t('bal_empty')}</div>`;
+      return `<div class="empty">${ic('dumb')}${t('bal_empty')}</div>`;
     }
     const dayKeys = (n) => { const a = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); a.push(Data.dateKey(d)); } return a; };
     const week = dayKeys(7);
@@ -1232,14 +1245,14 @@
 
     // 1) 今週の記録状況(3本柱×7日のドット)
     const rows = [
-      { ico: '🏋️', lab: t('lbl_workout'), color: 'var(--accent)', on: (k) => !!volByDate[k] },
-      { ico: '😴', lab: t('lbl_sleep'), color: 'var(--m-arm)', on: (k) => !!(logByDate[k] && logByDate[k].sleepHours) },
-      { ico: '🍗', lab: t('lbl_food'), color: 'var(--m-shoulder)', on: (k) => !!(logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) }
+      { lab: t('lbl_workout'), color: 'var(--accent)', on: (k) => !!volByDate[k] },
+      { lab: t('lbl_sleep'), color: 'var(--m-arm)', on: (k) => !!(logByDate[k] && logByDate[k].sleepHours) },
+      { lab: t('lbl_food'), color: 'var(--m-shoulder)', on: (k) => !!(logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) }
     ];
     let h = `<div class="card"><h2>${t('bal_status')}</h2><div class="bgrid">`;
     h += `<div class="bg-row bg-head"><span class="bg-lab"></span>${week.map(k => `<span class="bg-c">${dowOf(k)}</span>`).join('')}</div>`;
     rows.forEach(r => {
-      h += `<div class="bg-row"><span class="bg-lab">${r.ico} ${r.lab}</span>` +
+      h += `<div class="bg-row"><span class="bg-lab"><i class="dotc" style="background:${r.color}"></i>${r.lab}</span>` +
         week.map(k => `<span class="bg-c"><i class="bg-dot"${r.on(k) ? ` style="background:${r.color}"` : ''}></i></span>`).join('') + `</div>`;
     });
     h += `</div></div>`;
@@ -1265,10 +1278,10 @@
     const sleepPts = two.filter(k => logByDate[k] && logByDate[k].sleepHours).map(k => ({ label: Data.fmtDateShort(k), value: logByDate[k].sleepHours }));
     const protPts = two.filter(k => logByDate[k] && logByDate[k].protein).map(k => ({ label: Data.fmtDateShort(k), value: logByDate[k].protein }));
     h += `<div class="card"><h2>${t('bal_trend14')}</h2>`;
-    h += `<div class="bt-lab">🏋️ ${t('trend_vol_d', { u: uLab() })}</div><div class="chart-wrap">${Charts.lineAbs(volPts, { w: 340, h: 110 })}</div>`;
-    h += `<div class="bt-lab">😴 ${t('trend_sleep')}</div>` +
+    h += `<div class="bt-lab"><i class="dotc" style="background:var(--accent)"></i>${t('trend_vol_d', { u: uLab() })}</div><div class="chart-wrap">${Charts.lineAbs(volPts, { w: 340, h: 110 })}</div>`;
+    h += `<div class="bt-lab"><i class="dotc" style="background:var(--m-arm)"></i>${t('trend_sleep')}</div>` +
       (sleepPts.length >= 2 ? `<div class="chart-wrap">${Charts.lineAbs(sleepPts, { w: 340, h: 110, color: 'var(--m-arm)' })}</div>` : `<p class="muted small">${t('bal_need_more')}</p>`);
-    h += `<div class="bt-lab">🍗 ${t('trend_protein')}</div>` +
+    h += `<div class="bt-lab"><i class="dotc" style="background:var(--m-shoulder)"></i>${t('trend_protein')}</div>` +
       (protPts.length >= 2 ? `<div class="chart-wrap">${Charts.lineAbs(protPts, { w: 340, h: 110, color: 'var(--m-shoulder)' })}</div>` : `<p class="muted small">${t('bal_need_more')}</p>`);
     h += `</div>`;
     return h;
@@ -1297,10 +1310,10 @@
   function renderMenu() {
     if (state.menu.screen === 'edit') return renderTemplateEdit();
     const templates = Store.getTemplates();
-    let h = `<div class="head"><h1>📋 ${t('h_menu')}</h1><div class="spacer"></div>
+    let h = `<div class="head"><h1>${t('h_menu')}</h1><div class="spacer"></div>
       <button class="icon-btn" data-act="new-template" aria-label="${t('a_new_tpl')}">＋</button></div>`;
     if (!templates.length) {
-      h += `<div class="empty"><span class="big">📋</span>${t('menu_empty')}</div>`;
+      h += `<div class="empty">${ic('list')}${t('menu_empty')}</div>`;
       h += `<button class="btn" data-act="new-template">${t('create_tpl')}</button>`;
       return h;
     }
@@ -1346,7 +1359,7 @@
   function renderCondition() {
     if (state.cond.screen === 'edit') return renderConditionEdit();
     const logs = Store.getLogs();
-    let h = `<div class="head"><h1>🌙 ${t('h_condition')}</h1><div class="spacer"></div>
+    let h = `<div class="head"><h1>${t('h_condition')}</h1><div class="spacer"></div>
       <button class="icon-btn" data-act="cond-today" aria-label="${t('a_cond_today')}">＋</button></div>`;
     const weights = logs.filter(l => l.weight).slice().sort((a, b) => a.date.localeCompare(b.date));
     if (weights.length >= 2) {
@@ -1362,9 +1375,9 @@
       h += logs.map(l => {
         const parts = [];
         if (l.weight) parts.push(`${disp(l.weight)}${uLab()}`);
-        if (l.sleepHours) parts.push(`😴 ${Data.fmtNum(l.sleepHours)}h`);
-        if (l.calories) parts.push(`🍚 ${l.calories}kcal`);
-        if (l.protein) parts.push(`🍗 ${l.protein}g`);
+        if (l.sleepHours) parts.push(`${Data.fmtNum(l.sleepHours)}h`);
+        if (l.calories) parts.push(`${l.calories}kcal`);
+        if (l.protein) parts.push(`P${l.protein}g`);
         return `<div class="lrow" data-act="cond-edit" data-date="${l.date}">
           <div class="lmain"><div class="ltitle">${Data.fmtDate(l.date)}</div>
           <div class="lsub">${parts.join(t('sep')) || t('note_only')}</div></div>
@@ -1403,7 +1416,7 @@
     const s = S();
     const accent = Store.getAccent();
     let h = `<button class="back-btn" data-act="settings-back">‹ ${t('back')}</button>`;
-    h += `<div class="head"><h1>⚙️ ${t('settings')}</h1></div>`;
+    h += `<div class="head"><h1>${t('settings')}</h1></div>`;
     h += `<div class="card"><h2>${t('s_unit')}</h2>
       <div class="seg"><button class="${s.unit === 'kg' ? 'active' : ''}" data-act="set-unit" data-v="kg">kg</button>
       <button class="${s.unit === 'lbs' ? 'active' : ''}" data-act="set-unit" data-v="lbs">lbs</button></div></div>`;
