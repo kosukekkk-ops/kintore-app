@@ -52,7 +52,7 @@
     hist: { ym: null, screen: 'list', sessionId: null },
     menu: { screen: 'list', editId: null, draft: null },
     graph: { exerciseId: null, metric: 'max' },
-    cond: { screen: 'list', date: null }
+    cond: { screen: 'list', date: null, backTo: null } // backTo='home': ホームの柱カード経由(戻り先もホーム)
   };
   let cur = null;
   const picker = { q: '', muscle: 'all', onPick: null };
@@ -1379,7 +1379,7 @@
     const date = state.cond.date;
     const l = Store.getLog(date) || { date };
     const q = condQuality;
-    let h = `<button class="back-btn" data-act="cond-back">‹ ${t('h_condition')}</button>`;
+    let h = `<button class="back-btn" data-act="cond-back">‹ ${state.cond.backTo === 'home' ? t('to_home') : t('h_condition')}</button>`;
     h += `<div class="head"><h1 style="font-size:18px">${Data.fmtDate(date)}</h1></div>`;
     h += `<div class="card">
       <label class="field"><span class="lab">${t('c_date')}</span>
@@ -1556,14 +1556,14 @@
     },
     'tpl-delete': () => confirmSheet(t('tpl_del_confirm'), () => { if (state.menu.draft.id) Store.deleteTemplate(state.menu.draft.id); state.menu.screen = 'list'; closeSheet(); render(); }),
 
-    'cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; render(); },
-    // ホームの睡眠/食事カードから: 体調タブへ移動して今日の入力を開く
-    'go-cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; switchTab('condition'); },
-    'cond-edit': (d) => { state.cond.date = d.date; condQuality = (Store.getLog(d.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; render(); },
-    'cond-back': () => { state.cond.screen = 'list'; render(); },
+    'cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = null; render(); },
+    // ホームの睡眠/食事カードから: 体調タブへ移動して今日の入力を開く(戻り先はホーム)
+    'go-cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = 'home'; switchTab('condition'); },
+    'cond-edit': (d) => { state.cond.date = d.date; condQuality = (Store.getLog(d.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = null; render(); },
+    'cond-back': () => closeCondEdit(),
     'c-quality': (d) => { condQuality = +d.v; $$('#sleep-q button').forEach(b => b.classList.toggle('active', +b.dataset.v === condQuality)); },
     'c-save': () => saveCondition(),
-    'c-delete': () => confirmSheet(t('cond_del_confirm'), () => { Store.deleteLog(state.cond.date); state.cond.screen = 'list'; closeSheet(); render(); }),
+    'c-delete': () => confirmSheet(t('cond_del_confirm'), () => { Store.deleteLog(state.cond.date); closeSheet(); closeCondEdit(); }),
 
     'set-unit': (d) => { Store.setSettings({ unit: d.v }); render(); },
     'set-lang': (d) => { Store.setSettings({ lang: d.v }); relabelTabs(); render(); },
@@ -1700,7 +1700,15 @@
     const pr = g('c-protein'); if (pr) log.protein = parseInt(pr, 10);
     const nt = g('c-note'); if (nt.trim()) log.note = nt.trim();
     Store.saveLog(log);
-    state.cond.screen = 'list'; render(); toast(t('cond_saved'));
+    toast(t('cond_saved'));
+    closeCondEdit();
+  }
+  // 体調入力を閉じる。ホームの柱カード経由ならホームへ、体調タブ経由なら一覧へ戻す
+  function closeCondEdit() {
+    const back = state.cond.backTo;
+    state.cond.screen = 'list'; state.cond.backTo = null;
+    if (back === 'home') { state.wo.screen = state.wo.screen === 'session' ? 'session' : 'home'; switchTab('workout'); }
+    else render();
   }
   function openDetail(id) { state.hist.screen = 'detail'; state.hist.sessionId = id; switchTab('history'); }
   function openDayList(date, list) {
@@ -1779,7 +1787,7 @@
     if (state.tab === 'workout' && state.wo.screen === 'session') { closeSession(); return true; }
     if (state.tab === 'history' && state.hist.screen === 'detail') { state.hist.screen = 'list'; render(); return true; }
     if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }
-    if (state.tab === 'condition' && state.cond.screen === 'edit') { state.cond.screen = 'list'; render(); return true; }
+    if (state.tab === 'condition' && state.cond.screen === 'edit') { closeCondEdit(); return true; }
     if (state.tab !== 'workout') { switchTab('workout'); return true; }
     return false; // ホーム最上位。ここでの戻るはアプリ側では扱わない
   }
