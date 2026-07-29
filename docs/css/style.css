@@ -321,6 +321,15 @@ label.field .lab { font-size: 13px; color: var(--text-dim); margin-bottom: 5px; 
 body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 78px); }
 .timer-bar[data-act] { cursor: pointer; }
 
+/* ---------- 3本柱バランス(グラフタブ) ---------- */
+.bgrid { display: flex; flex-direction: column; gap: 10px; }
+.bg-row { display: flex; align-items: center; }
+.bg-lab { width: 76px; flex: none; font-size: 12px; color: var(--text-dim); }
+.bg-c { flex: 1; display: flex; justify-content: center; font-size: 10px; color: var(--text-mute); font-family: var(--font-mono); }
+.bg-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--bg-elev); display: block; }
+.bt-lab { font: 600 11px var(--font-num); color: var(--text-dim); margin: 12px 0 4px; }
+.bt-lab:first-of-type { margin-top: 0; }
+
 /* ---------- 下部固定アクションバー(記録画面/体調入力) ---------- */
 #session-abar, #cond-abar {
   position: fixed; left: 0; right: 0;

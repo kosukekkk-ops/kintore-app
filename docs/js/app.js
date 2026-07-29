@@ -1136,6 +1136,13 @@
   function renderGraph() {
     const sessions = Store.getSessions().filter(s => s.done);
     let h = `<div class="head"><h1>📈 ${t('h_graph')}</h1></div>`;
+    // 一元管理の要: まず3本柱のバランス、掘り下げたい人は種目別へ
+    if (!state.graph.view) state.graph.view = 'balance';
+    h += `<div class="seg mb">
+      <button class="${state.graph.view === 'balance' ? 'active' : ''}" data-act="graph-view" data-v="balance">${t('g_balance')}</button>
+      <button class="${state.graph.view === 'exercise' ? 'active' : ''}" data-act="graph-view" data-v="exercise">${t('g_by_exercise')}</button>
+    </div>`;
+    if (state.graph.view === 'balance') return h + renderBalance(sessions);
     if (!sessions.length) { h += `<div class="empty"><span class="big">📈</span>${t('graph_empty')}</div>`; return h; }
 
     const usedIds = new Set();
@@ -1202,6 +1209,68 @@
       <div class="tile"><div class="n">${Data.fmtNum(Data.kgToDisplay(best1rm, unit()))}</div><div class="l">${t('pb_1rm')}</div></div>
     </div>`;
     h += renderMuscleVolume(sessions);
+    return h;
+  }
+
+  /* ---- 3本柱バランス(睡眠・食事・運動) ---- */
+  function renderBalance(sessions) {
+    const s = S();
+    const goalV = Math.max(500, s.goalVolume || 5000);
+    const goalS = s.goalSleep || 7.5;
+    const goalP = s.goalProtein || 120;
+    const volByDate = {};
+    sessions.forEach(x => { volByDate[x.date] = (volByDate[x.date] || 0) + Data.sessionVolumeKg(x); });
+    const logByDate = {};
+    Store.getLogs().forEach(l => { logByDate[l.date] = l; });
+    if (!Object.keys(volByDate).length && !Object.keys(logByDate).length) {
+      return `<div class="empty"><span class="big">🏋️😴🍗</span>${t('bal_empty')}</div>`;
+    }
+    const dayKeys = (n) => { const a = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); a.push(Data.dateKey(d)); } return a; };
+    const week = dayKeys(7);
+    const dows = Data.dow();
+    const dowOf = (k) => dows[new Date(k + 'T00:00:00').getDay()];
+
+    // 1) 今週の記録状況(3本柱×7日のドット)
+    const rows = [
+      { ico: '🏋️', lab: t('lbl_workout'), color: 'var(--accent)', on: (k) => !!volByDate[k] },
+      { ico: '😴', lab: t('lbl_sleep'), color: 'var(--m-arm)', on: (k) => !!(logByDate[k] && logByDate[k].sleepHours) },
+      { ico: '🍗', lab: t('lbl_food'), color: 'var(--m-shoulder)', on: (k) => !!(logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) }
+    ];
+    let h = `<div class="card"><h2>${t('bal_status')}</h2><div class="bgrid">`;
+    h += `<div class="bg-row bg-head"><span class="bg-lab"></span>${week.map(k => `<span class="bg-c">${dowOf(k)}</span>`).join('')}</div>`;
+    rows.forEach(r => {
+      h += `<div class="bg-row"><span class="bg-lab">${r.ico} ${r.lab}</span>` +
+        week.map(k => `<span class="bg-c"><i class="bg-dot"${r.on(k) ? ` style="background:${r.color}"` : ''}></i></span>`).join('') + `</div>`;
+    });
+    h += `</div></div>`;
+
+    // 2) 直近7日の達成度: 「記録した日の平均 vs 1日の目標」。
+    //    何日やったか(頻度)は上のドット欄が担い、ここは質を見る。
+    const avgOf = (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0);
+    const avgV = avgOf(week.map(k => volByDate[k]).filter(Boolean));
+    const avgS = avgOf(week.map(k => logByDate[k] && logByDate[k].sleepHours).filter(Boolean));
+    const avgP = avgOf(week.map(k => logByDate[k] && logByDate[k].protein).filter(Boolean));
+    const pct = (v, goal) => Math.round(v / goal * 100);
+    const items = [
+      { label: t('lbl_workout'), value: avgV / goalV, color: 'var(--accent)', note: avgV ? pct(avgV, goalV) + '%' : '—' },
+      { label: t('lbl_sleep'), value: avgS / goalS, color: 'var(--m-arm)', note: avgS ? pct(avgS, goalS) + '%' : '—' },
+      { label: t('lbl_food'), value: avgP / goalP, color: 'var(--m-shoulder)', note: avgP ? pct(avgP, goalP) + '%' : '—' }
+    ];
+    h += `<div class="card"><h2>${t('bal_score')}</h2><div class="chart-wrap">${Charts.bars(items, 320)}</div>
+      <p class="muted small" style="margin:6px 0 0">${t('bal_goalnote', { v: Data.fmtNum(Data.kgToDisplay(goalV, unit())), u: uLab(), s: Data.fmtNum(goalS), p: goalP })}</p></div>`;
+
+    // 3) 直近14日の推移(運動は0=休みも意味があるので全日、睡眠/食事は記録日のみ)
+    const two = dayKeys(14);
+    const volPts = two.map(k => ({ label: Data.fmtDateShort(k), value: Data.kgToDisplay(volByDate[k] || 0, unit()) }));
+    const sleepPts = two.filter(k => logByDate[k] && logByDate[k].sleepHours).map(k => ({ label: Data.fmtDateShort(k), value: logByDate[k].sleepHours }));
+    const protPts = two.filter(k => logByDate[k] && logByDate[k].protein).map(k => ({ label: Data.fmtDateShort(k), value: logByDate[k].protein }));
+    h += `<div class="card"><h2>${t('bal_trend14')}</h2>`;
+    h += `<div class="bt-lab">🏋️ ${t('trend_vol_d', { u: uLab() })}</div><div class="chart-wrap">${Charts.lineAbs(volPts, { w: 340, h: 110 })}</div>`;
+    h += `<div class="bt-lab">😴 ${t('trend_sleep')}</div>` +
+      (sleepPts.length >= 2 ? `<div class="chart-wrap">${Charts.lineAbs(sleepPts, { w: 340, h: 110, color: 'var(--m-arm)' })}</div>` : `<p class="muted small">${t('bal_need_more')}</p>`);
+    h += `<div class="bt-lab">🍗 ${t('trend_protein')}</div>` +
+      (protPts.length >= 2 ? `<div class="chart-wrap">${Charts.lineAbs(protPts, { w: 340, h: 110, color: 'var(--m-shoulder)' })}</div>` : `<p class="muted small">${t('bal_need_more')}</p>`);
+    h += `</div>`;
     return h;
   }
 
@@ -1354,6 +1423,12 @@
     h += `<div class="card"><h2>${t('s_goal')}</h2>
       <label class="field"><span class="lab">${t('goal_volume', { u: uLab() })}</span>
         <input inputmode="numeric" data-in="goal-volume" value="${Data.fmtNum(Data.kgToDisplay(Math.max(500, s.goalVolume || 5000), s.unit))}"></label>
+      <div class="row">
+        <label class="field" style="flex:1"><span class="lab">${t('goal_sleep')}</span>
+          <input inputmode="decimal" data-in="goal-sleep" value="${Data.fmtNum(s.goalSleep || 7.5)}"></label>
+        <label class="field" style="flex:1"><span class="lab">${t('goal_protein')}</span>
+          <input inputmode="numeric" data-in="goal-protein" value="${s.goalProtein || 120}"></label>
+      </div>
       <p class="muted small">${t('goal_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_rest')}</h2>
       <label class="field"><span class="lab">${t('rest_default')}</span><input inputmode="numeric" data-in="rest-default" value="${s.restDefault}"></label>
@@ -1466,6 +1541,7 @@
     'del-session': (d) => confirmSheet(t('del_confirm'), () => { Store.deleteSession(d.id); state.hist.screen = 'list'; closeSheet(); render(); }),
 
     'graph-metric': (d) => { state.graph.metric = d.m; render(); },
+    'graph-view': (d) => { state.graph.view = d.v; render(); },
 
     'new-template': () => { state.menu.draft = { id: null, name: '', description: '', exercises: [] }; state.menu.screen = 'edit'; render(); },
     'edit-template': (d) => { state.menu.draft = JSON.parse(JSON.stringify(Store.getTemplate(d.id))); state.menu.screen = 'edit'; render(); },
@@ -1536,6 +1612,8 @@
     }
     if (k === 'rest-default') { Store.setSettings({ restDefault: Math.max(5, parseInt(v, 10) || 90) }); return; }
     if (k === 'goal-volume') { Store.setSettings({ goalVolume: Math.max(500, Data.displayToKg(v, unit()) || 5000) }); return; }
+    if (k === 'goal-sleep') { Store.setSettings({ goalSleep: Math.min(16, Math.max(1, parseFloat(v) || 7.5)) }); return; }
+    if (k === 'goal-protein') { Store.setSettings({ goalProtein: Math.max(10, parseInt(v, 10) || 120) }); return; }
   }
 
   /* ---- サブ処理 ---- */

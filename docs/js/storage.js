@@ -35,7 +35,7 @@ const Store = (() => {
   }
 
   // restAuto は既定OFF: タイマーは記録画面の「▶ インターバル」ボタンで開始するのが主導線
-  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 180, restAuto: false, goalVolume: 5000, timerStyle: 'large' };
+  const DEFAULT_SETTINGS = { unit: 'kg', lang: 'ja', restDefault: 180, restAuto: false, goalVolume: 5000, goalSleep: 7.5, goalProtein: 120, timerStyle: 'large' };
 
   return {
     uid,
