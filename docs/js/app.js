@@ -1461,8 +1461,47 @@
       <button class="btn secondary mb" data-act="import">${t('import_btn')}</button>
       <button class="btn danger" data-act="reset">${t('reset_btn')}</button>
       <p class="muted small mt">${t('data_hint')}</p></div>`;
+    h += `<div class="card"><h2>${t('contact_title')}</h2>
+      <button class="btn secondary" data-act="contact">${t('contact_btn')}</button></div>`;
     h += `<p class="muted small center">${t('version')}</p>`;
     return h;
+  }
+
+  /* ---- お問い合わせ(静的ホスティングのためFormSubmitでメール転送) ---- */
+  const CONTACT_ENDPOINT = 'https://formsubmit.co/ajax/kosuke.kkk@icloud.com';
+  function openContact() {
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${t('contact_title')}</h2>
+      <label class="field"><span class="lab">${t('contact_msg_lbl')}</span>
+        <textarea id="ct-msg" rows="5" placeholder="${t('contact_msg_ph')}"></textarea></label>
+      <label class="field"><span class="lab">${t('contact_mail_lbl')}</span>
+        <input id="ct-mail" type="email" inputmode="email" placeholder="you@example.com"></label>
+      <button class="btn mb" id="ct-send" data-act="contact-send">${t('contact_send')}</button>
+      <p class="muted small">${t('contact_note')}</p>`);
+  }
+  function sendContact() {
+    const msg = ($('#ct-msg') || {}).value || '';
+    const mail = ($('#ct-mail') || {}).value || '';
+    if (!msg.trim()) { toast(t('contact_need_msg')); return; }
+    const btn = $('#ct-send');
+    if (btn) { btn.disabled = true; btn.textContent = t('contact_sending'); }
+    const meta = `app v42 / ${Data.lang()} / ${navigator.userAgent}`;
+    fetch(CONTACT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        message: msg.trim() + '\n\n---\n' + meta,
+        email: mail.trim() || undefined,
+        _subject: '[筋トレ記録] お問い合わせ',
+        _template: 'table',
+        _honey: '' // ボット対策のハニーポット
+      })
+    }).then(r => r.json()).then(j => {
+      if (j && String(j.success) === 'true') { closeSheet(); toast(t('contact_sent')); }
+      else throw new Error((j && j.message) || 'failed');
+    }).catch(() => {
+      if (btn) { btn.disabled = false; btn.textContent = t('contact_send'); }
+      toast(t('contact_fail'));
+    });
   }
 
   /* ============ イベント処理(委譲) ============ */
@@ -1586,6 +1625,8 @@
     'set-lang': (d) => { Store.setSettings({ lang: d.v }); relabelTabs(); render(); },
     'set-accent': (d) => { Store.setAccent(d.v); applyAccent(); render(); },
     'set-restauto': (d) => { Store.setSettings({ restAuto: d.v === '1' }); render(); },
+    'contact': () => openContact(),
+    'contact-send': () => sendContact(),
     'export': () => doExport(),
     'import': () => doImport(),
     'reset': () => confirmSheet(t('reset_confirm'), () => { Store.resetData(); closeSheet(); toast(t('reset_done')); render(); }),
