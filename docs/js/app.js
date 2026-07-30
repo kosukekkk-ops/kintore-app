@@ -184,6 +184,8 @@
     const foodParts = [];
     if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
     if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+    const sp = suppProgress(todayK);
+    if (sp.m) foodParts.push(t('supp_pct', { n: sp.n, m: sp.m }));
     h += `<div class="pillars">
       <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
         <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
@@ -1239,7 +1241,7 @@
     sessions.forEach(x => { volByDate[x.date] = (volByDate[x.date] || 0) + Data.sessionVolumeKg(x); });
     const logByDate = {};
     Store.getLogs().forEach(l => { logByDate[l.date] = l; });
-    if (!Object.keys(volByDate).length && !Object.keys(logByDate).length) {
+    if (!Object.keys(volByDate).length && !Object.keys(logByDate).length && !Store.getSupps().length) {
       return `<div class="empty">${ic('dumb')}${t('bal_empty')}</div>`;
     }
     const dayKeys = (n) => { const a = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); a.push(Data.dateKey(d)); } return a; };
@@ -1253,6 +1255,13 @@
       { lab: t('lbl_sleep'), color: 'var(--m-arm)', on: (k) => !!(logByDate[k] && logByDate[k].sleepHours) },
       { lab: t('lbl_food'), color: 'var(--m-shoulder)', on: (k) => !!(logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) }
     ];
+    // サプリを登録している人にはドット行と順守率も出す
+    if (Store.getSupps().length) {
+      rows.push({
+        lab: t('lbl_supp'), color: 'var(--m-abs)',
+        on: (k) => { const d = dueSupps(k); if (!d.length) return false; const tk = Store.suppTakenSet(k); return d.some(s => s.slots.some(sl => tk.has(s.id + '|' + sl))); }
+      });
+    }
     let h = `<div class="card"><h2>${t('bal_status')}</h2><div class="bgrid">`;
     h += `<div class="bg-row bg-head"><span class="bg-lab"></span>${week.map(k => `<span class="bg-c">${dowOf(k)}</span>`).join('')}</div>`;
     rows.forEach(r => {
@@ -1273,6 +1282,13 @@
       { label: t('lbl_sleep'), value: avgS / goalS, color: 'var(--m-arm)', note: avgS ? pct(avgS, goalS) + '%' : '—' },
       { label: t('lbl_food'), value: avgP / goalP, color: 'var(--m-shoulder)', note: avgP ? pct(avgP, goalP) + '%' : '—' }
     ];
+    // サプリの順守率(7日間の 飲んだ数/飲む予定数)
+    let dueT = 0, takT = 0;
+    week.forEach(k => {
+      const tk = Store.suppTakenSet(k);
+      dueSupps(k).forEach(s => s.slots.forEach(sl => { dueT++; if (tk.has(s.id + '|' + sl)) takT++; }));
+    });
+    if (dueT) items.push({ label: t('lbl_supp'), value: takT / dueT, color: 'var(--m-abs)', note: Math.round(takT / dueT * 100) + '%' });
     h += `<div class="card"><h2>${t('bal_score')}</h2><div class="chart-wrap">${Charts.bars(items, 320)}</div>
       <p class="muted small" style="margin:6px 0 0">${t('bal_goalnote', { v: Data.fmtNum(Data.kgToDisplay(goalV, unit())), u: uLab(), s: Data.fmtNum(goalS), p: goalP })}</p></div>`;
 
@@ -1359,12 +1375,110 @@
     return h;
   }
 
+  /* ============ サプリ(マイスタック＋今日のチェックリスト) ============ */
+  // その日にワークアウトがあるか(「トレ日のみ」のサプリの表示判定)
+  function isTrainingDay(dateK) {
+    return Store.getSessions().some(s => s.date === dateK && (s.done || (s.exercises && s.exercises.length)));
+  }
+  // その日に飲む予定のサプリ一覧
+  function dueSupps(dateK) {
+    const training = isTrainingDay(dateK);
+    return Store.getSupps().filter(s => s.slots && s.slots.length && (s.days !== 'training' || training));
+  }
+  function suppProgress(dateK) {
+    const taken = Store.suppTakenSet(dateK);
+    let n = 0, m = 0;
+    dueSupps(dateK).forEach(s => s.slots.forEach(sl => { m++; if (taken.has(s.id + '|' + sl)) n++; }));
+    return { n, m };
+  }
+  function suppTodayCard() {
+    const supps = Store.getSupps();
+    const today = Data.todayKey();
+    let inner;
+    if (!supps.length) {
+      inner = `<p class="muted small">${t('supp_empty')}</p>`;
+    } else {
+      const due = dueSupps(today);
+      if (!due.length) inner = `<p class="muted small">${t('supp_none_today')}</p>`;
+      else {
+        const taken = Store.suppTakenSet(today);
+        inner = Data.SUPP_SLOTS.map(slot => {
+          const items = due.filter(s => s.slots.includes(slot.key));
+          if (!items.length) return '';
+          return `<div class="supp-slot">${Data.slotName(slot.key)}</div>` + items.map(s => {
+            const key = s.id + '|' + slot.key, on = taken.has(key);
+            return `<div class="supp-row ${on ? 'on' : ''}" data-act="supp-toggle" data-key="${key}">
+              <span class="sname">${esc(s.name)}</span>${s.dose ? `<span class="sdose">${esc(s.dose)}</span>` : ''}
+              <span class="set-done ${on ? 'on' : ''}" aria-hidden="true">${ic('check', 15)}</span>
+            </div>`;
+          }).join('');
+        }).join('');
+      }
+    }
+    const p = suppProgress(today);
+    return `<div class="card"><div class="row" style="margin-bottom:4px"><h2 style="margin:0;flex:1">${t('supp_today')}</h2>
+        ${p.m ? `<span class="mono small" style="color:${p.n === p.m ? 'var(--accent)' : 'var(--text-dim)'}">${p.n}/${p.m}</span>` : ''}</div>
+      ${inner}
+      <button class="link-btn dim" data-act="supps-manage">${t('supp_manage')} ›</button></div>`;
+  }
+  function renderSuppManage() {
+    const supps = Store.getSupps();
+    let h = `<button class="back-btn" data-act="supps-back">‹ ${t('h_condition')}</button>`;
+    h += `<div class="head"><h1 style="font-size:18px">${t('supp_title')}</h1></div>`;
+    h += `<div class="card">`;
+    if (!supps.length) h += `<p class="muted small">${t('supp_empty')}</p>`;
+    else supps.forEach(s => {
+      h += `<div class="lrow" data-act="supp-edit" data-id="${s.id}">
+        <div class="lmain"><div class="ltitle">${esc(s.name)}${s.dose ? ` <span class="etag">${esc(s.dose)}</span>` : ''}${s.days === 'training' ? ` <span class="etag">${t('supp_rest_note')}</span>` : ''}</div>
+        <div class="lsub">${s.slots.map(k => Data.slotName(k)).join(' · ')}</div></div>
+        <div style="font-size:18px;color:var(--text-dim)">›</div></div>`;
+    });
+    h += `</div><button class="btn" data-act="supp-add">${t('supp_add')}</button>`;
+    return h;
+  }
+  let suppDraft = null;
+  function openSuppSheet(id) {
+    const s = id ? Store.getSupps().find(x => x.id === id) : null;
+    suppDraft = s ? JSON.parse(JSON.stringify(s)) : { id: null, name: '', dose: '', slots: [], days: 'all' };
+    showSheet(suppSheetInner());
+  }
+  function suppSheetInner() {
+    const d = suppDraft;
+    // 新規のときだけ定番プリセットを提示(Medisafe等の「よく使う薬から選ぶ」を踏襲)
+    const presets = !d.id ? `<div class="sec-lbl" style="margin:4px 0 8px">${t('supp_preset')}</div>
+      <div class="chips">${Data.SUPP_PRESETS.map((p, i) => `<div class="chip" data-act="supp-preset" data-i="${i}">${esc(Data.lang() === 'en' ? p.en : p.name)}</div>`).join('')}</div>
+      <p class="muted small" style="margin-top:0">${t('supp_custom_hint')}</p>` : '';
+    return `${sheetHead('sheet-close', t('close'))}<h2>${d.id ? t('supp_edit') : t('supp_title')}</h2>
+      ${presets}
+      <label class="field"><span class="lab">${t('supp_name')}</span><input id="sp-name" value="${esc(d.name)}"></label>
+      <label class="field"><span class="lab">${t('supp_dose')}</span><input id="sp-dose" value="${esc(d.dose)}"></label>
+      <label class="field"><span class="lab">${t('supp_slots')}</span>
+        <div class="chips">${Data.SUPP_SLOTS.map(sl => `<div class="chip ${d.slots.includes(sl.key) ? 'active' : ''}" data-act="supp-slot" data-key="${sl.key}">${Data.slotName(sl.key)}</div>`).join('')}</div></label>
+      <label class="field"><span class="lab">${t('supp_days')}</span>
+        <div class="seg"><button class="${d.days !== 'training' ? 'active' : ''}" data-act="supp-daysv" data-v="all">${t('supp_days_all')}</button>
+        <button class="${d.days === 'training' ? 'active' : ''}" data-act="supp-daysv" data-v="training">${t('supp_days_training')}</button></div></label>
+      <button class="btn mb" data-act="supp-save">${t('supp_save')}</button>
+      ${d.id ? `<button class="btn danger" data-act="supp-del" data-id="${d.id}">${t('supp_delete')}</button>` : ''}`;
+  }
+  // チップ操作でシートを再描画する前に、入力途中の名前/用量を退避する
+  function syncSuppInputs() {
+    const n = $('#sp-name'), ds = $('#sp-dose');
+    if (n) suppDraft.name = n.value;
+    if (ds) suppDraft.dose = ds.value;
+  }
+  function refreshSuppSheet() {
+    const ov = $$('.sheet-overlay');
+    if (ov.length) $('.sheet', ov[ov.length - 1]).innerHTML = `<div class="grab"></div>` + suppSheetInner();
+  }
+
   /* ============ 体調タブ ============ */
   function renderCondition() {
+    if (state.cond.screen === 'supps') return renderSuppManage();
     if (state.cond.screen === 'edit') return renderConditionEdit();
     const logs = Store.getLogs();
     let h = `<div class="head"><h1>${t('h_condition')}</h1><div class="spacer"></div>
       <button class="icon-btn" data-act="cond-today" aria-label="${t('a_cond_today')}">＋</button></div>`;
+    h += suppTodayCard();
     const weights = logs.filter(l => l.weight).slice().sort((a, b) => a.date.localeCompare(b.date));
     if (weights.length >= 2) {
       const points = weights.slice(-30).map(l => ({ label: Data.fmtDateShort(l.date), value: Data.kgToDisplay(l.weight, unit()) }));
@@ -1618,6 +1732,38 @@
     'cond-edit': (d) => { state.cond.date = d.date; condQuality = (Store.getLog(d.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = null; render(); },
     'cond-back': () => closeCondEdit(),
     'c-quality': (d) => { condQuality = +d.v; $$('#sleep-q button').forEach(b => b.classList.toggle('active', +b.dataset.v === condQuality)); },
+
+    'supp-toggle': (d) => { Store.toggleSuppTaken(Data.todayKey(), d.key); render(); },
+    'supps-manage': () => { state.cond.screen = 'supps'; switchTab('condition'); },
+    'supps-back': () => { state.cond.screen = 'list'; render(); },
+    'supp-add': () => openSuppSheet(null),
+    'supp-edit': (d) => openSuppSheet(d.id),
+    'supp-preset': (d) => {
+      const p = Data.SUPP_PRESETS[+d.i]; if (!p) return;
+      syncSuppInputs();
+      suppDraft.name = Data.lang() === 'en' ? p.en : p.name;
+      suppDraft.dose = p.dose; suppDraft.slots = p.slots.slice(); suppDraft.days = p.days;
+      refreshSuppSheet();
+    },
+    'supp-slot': (d) => {
+      syncSuppInputs();
+      const i = suppDraft.slots.indexOf(d.key);
+      if (i >= 0) suppDraft.slots.splice(i, 1); else suppDraft.slots.push(d.key);
+      refreshSuppSheet();
+    },
+    'supp-daysv': (d) => { syncSuppInputs(); suppDraft.days = d.v; refreshSuppSheet(); },
+    'supp-save': () => {
+      syncSuppInputs();
+      if (!suppDraft.name.trim() || !suppDraft.slots.length) { toast(t('supp_need')); return; }
+      const wasEdit = !!suppDraft.id;
+      if (wasEdit) Store.updateSupp(suppDraft.id, { name: suppDraft.name.trim(), dose: suppDraft.dose.trim(), slots: suppDraft.slots, days: suppDraft.days });
+      else Store.addSupp(suppDraft);
+      closeSheet(); toast(t(wasEdit ? 'supp_saved' : 'supp_added')); render();
+    },
+    'supp-del': (d) => {
+      const s = Store.getSupps().find(x => x.id === d.id);
+      confirmSheet(t('supp_del_confirm', { name: s ? s.name : '' }), () => { Store.deleteSupp(d.id); closeSheet(); render(); });
+    },
     'c-save': () => saveCondition(),
     'c-delete': () => confirmSheet(t('cond_del_confirm'), () => { Store.deleteLog(state.cond.date); closeSheet(); closeCondEdit(); }),
 
@@ -1845,6 +1991,7 @@
     if (state.tab === 'workout' && state.wo.screen === 'session') { closeSession(); return true; }
     if (state.tab === 'history' && state.hist.screen === 'detail') { state.hist.screen = 'list'; render(); return true; }
     if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }
+    if (state.tab === 'condition' && state.cond.screen === 'supps') { state.cond.screen = 'list'; render(); return true; }
     if (state.tab === 'condition' && state.cond.screen === 'edit') { closeCondEdit(); return true; }
     if (state.tab !== 'workout') { switchTab('workout'); return true; }
     return false; // ホーム最上位。ここでの戻るはアプリ側では扱わない

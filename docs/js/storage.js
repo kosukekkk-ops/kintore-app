@@ -96,6 +96,36 @@ const Store = (() => {
     },
     deleteTemplate(id) { this.setTemplates(this.getTemplates().filter(t => t.id !== id)); },
 
+    /* ---------- supplements(サプリのマイスタック) ----------
+     * supplements: [{ id, name, dose, slots:[timing...], days:'all'|'training', order }]
+     * suppLogs:    [{ date, taken:['<suppId>|<slot>', ...] }]  ※チェックした分だけ持つ */
+    getSupps() { return read('supplements', []); },
+    setSupps(list) { write('supplements', list); },
+    addSupp(s) {
+      const list = this.getSupps();
+      const item = { id: uid(), name: s.name.trim(), dose: (s.dose || '').trim(), slots: s.slots || [], days: s.days === 'training' ? 'training' : 'all', order: list.length };
+      list.push(item); this.setSupps(list); return item;
+    },
+    updateSupp(id, patch) {
+      const list = this.getSupps();
+      const i = list.findIndex(x => x.id === id);
+      if (i >= 0) { list[i] = Object.assign(list[i], patch); this.setSupps(list); }
+    },
+    deleteSupp(id) { this.setSupps(this.getSupps().filter(x => x.id !== id)); },
+    getSuppLogs() { return read('suppLogs', []); },
+    suppTakenSet(date) {
+      const l = this.getSuppLogs().find(x => x.date === date);
+      return new Set((l && l.taken) || []);
+    },
+    toggleSuppTaken(date, key) {
+      const logs = this.getSuppLogs();
+      let l = logs.find(x => x.date === date);
+      if (!l) { l = { date, taken: [] }; logs.push(l); }
+      const i = l.taken.indexOf(key);
+      if (i >= 0) l.taken.splice(i, 1); else l.taken.push(key);
+      write('suppLogs', logs);
+    },
+
     /* ---------- daily logs(体調) ---------- */
     getLogs() { return read('dailyLogs', []); },
     setLogs(list) { write('dailyLogs', list); },
@@ -157,7 +187,9 @@ const Store = (() => {
       return {
         app: 'kintore', version: 1, exportedAt: new Date().toISOString(),
         exercises: this.getExercises(), sessions: this.getSessions(),
-        templates: this.getTemplates(), dailyLogs: this.getLogs(), settings: this.getSettings()
+        templates: this.getTemplates(), dailyLogs: this.getLogs(),
+        supplements: this.getSupps(), suppLogs: this.getSuppLogs(),
+        settings: this.getSettings()
       };
     },
     // 別端末で書き出したJSONを取り込み、現在のデータへマージする(idが同じものは上書き)。
@@ -175,15 +207,17 @@ const Store = (() => {
         merged.sort((a, b) => b.date.localeCompare(a.date));
         this.setLogs(merged);
       }
+      if (Array.isArray(data.supplements)) this.setSupps(mergeById(this.getSupps(), data.supplements));
+      if (Array.isArray(data.suppLogs)) write('suppLogs', mergeById(this.getSuppLogs(), data.suppLogs, 'date'));
       if (data.settings) this.setSettings(data.settings);
       return {
         exercises: this.getExercises().length, sessions: this.getSessions().length,
         templates: this.getTemplates().length, logs: this.getLogs().length
       };
     },
-    // 記録データを全消去(種目マスタ・設定・テーマは残す)。
+    // 記録データを全消去(種目マスタ・サプリのスタック・設定・テーマは残す)。
     resetData() {
-      write('sessions', []); write('templates', []); write('dailyLogs', []);
+      write('sessions', []); write('templates', []); write('dailyLogs', []); write('suppLogs', []);
     }
   };
 })();

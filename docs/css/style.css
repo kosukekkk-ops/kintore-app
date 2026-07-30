@@ -342,6 +342,14 @@ body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset
 .bt-lab { font: 600 11px var(--font-num); color: var(--text-dim); margin: 12px 0 4px; }
 .bt-lab:first-of-type { margin-top: 0; }
 
+/* ---------- サプリ(今日のチェックリスト) ---------- */
+.supp-slot { font: 600 10px var(--font-num); letter-spacing: .1em; color: var(--text-dim); text-transform: uppercase; margin: 12px 0 2px; }
+.supp-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border2); cursor: pointer; }
+.supp-row .sname { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+.supp-row .sdose { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.supp-row.on .sname { color: var(--text-dim); text-decoration: line-through; text-decoration-color: var(--faint); }
+.supp-row .set-done { display: flex; align-items: center; justify-content: center; }
+
 /* ---------- 下部固定アクションバー(記録画面/体調入力) ---------- */
 #session-abar, #cond-abar {
   position: fixed; left: 0; right: 0;

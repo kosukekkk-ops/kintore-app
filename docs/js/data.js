@@ -222,6 +222,16 @@ const Data = (() => {
       active_resume: '進行中を開く', active_finish_new: '保存して新しく開始', active_discard_new: '破棄して新しく開始',
       unfinished_title: '未完了のワークアウト', unfinished_hint: 'タップすると続きから記録できます。', badge_unfinished: '未完了',
       close: '閉じる',
+      // サプリ
+      supp_today: '今日のサプリ', supp_manage: 'サプリを管理', supp_title: 'マイサプリ',
+      supp_add: '＋ サプリを追加', supp_edit: 'サプリを編集', supp_name: '名前', supp_dose: '用量（例: 5g / 2粒）',
+      supp_slots: '飲むタイミング', supp_days: '頻度', supp_days_all: '毎日', supp_days_training: 'トレ日のみ',
+      supp_preset: '定番から選ぶ', supp_custom_hint: '選ぶと名前・用量・タイミングが入ります。自由に変更してOK。',
+      supp_save: '保存する', supp_delete: 'このサプリを削除', supp_del_confirm: '「{name}」を削除しますか？摂取記録は残ります。',
+      supp_empty: 'サプリを登録すると、毎日のチェックリストがここに表示されます。',
+      supp_none_today: '今日は飲むサプリがありません（トレ日のみのサプリは休息日に非表示）。',
+      supp_need: '名前とタイミングを入れてください', supp_saved: 'サプリを保存しました', supp_added: 'サプリを追加しました',
+      supp_rest_note: 'トレ日のみ', lbl_supp: 'サプリ', supp_pct: 'サプリ {n}/{m}',
       contact_title: 'お問い合わせ', contact_btn: 'ご意見・不具合を送る', contact_msg_lbl: '内容',
       contact_msg_ph: 'ご意見・不具合・欲しい機能など、なんでもどうぞ',
       contact_mail_lbl: '返信先メール（任意）', contact_send: '送信する', contact_sending: '送信中…',
@@ -318,6 +328,15 @@ const Data = (() => {
       active_resume: 'Open the one in progress', active_finish_new: 'Save it & start new', active_discard_new: 'Discard it & start new',
       unfinished_title: 'Unfinished workouts', unfinished_hint: 'Tap to pick up where you left off.', badge_unfinished: 'unfinished',
       close: 'Close',
+      supp_today: "Today's supplements", supp_manage: 'Manage supplements', supp_title: 'My supplements',
+      supp_add: '＋ Add supplement', supp_edit: 'Edit supplement', supp_name: 'Name', supp_dose: 'Dose (e.g. 5g / 2 caps)',
+      supp_slots: 'When to take', supp_days: 'Frequency', supp_days_all: 'Every day', supp_days_training: 'Training days',
+      supp_preset: 'Pick from presets', supp_custom_hint: 'Picking one fills the name, dose and timing. Edit freely.',
+      supp_save: 'Save', supp_delete: 'Delete this supplement', supp_del_confirm: 'Delete "{name}"? Past intake logs are kept.',
+      supp_empty: 'Add your supplements to get a daily checklist here.',
+      supp_none_today: 'Nothing to take today (training-day items are hidden on rest days).',
+      supp_need: 'Enter a name and timing', supp_saved: 'Supplement saved', supp_added: 'Supplement added',
+      supp_rest_note: 'training days', lbl_supp: 'Supps', supp_pct: 'Supps {n}/{m}',
       contact_title: 'Contact', contact_btn: 'Send feedback / report a bug', contact_msg_lbl: 'Message',
       contact_msg_ph: 'Feedback, bugs, feature requests — anything goes',
       contact_mail_lbl: 'Reply-to email (optional)', contact_send: 'Send', contact_sending: 'Sending…',
@@ -383,11 +402,47 @@ const Data = (() => {
     return s;
   }
 
+  /* ---------- サプリメント(タイミング定義とプリセット) ----------
+   * 実在の服薬/サプリ管理アプリ(Medisafe, Round Health, MyTherapy, iOSヘルスケア)の
+   * 共通パターンを踏襲: 「マイリスト登録(用量+タイミング) → 今日のチェックリスト → 順守率」 */
+  const SUPP_SLOTS = [
+    { key: 'wake',    ja: '起床時',   en: 'On waking' },
+    { key: 'morning', ja: '朝',       en: 'Morning' },
+    { key: 'noon',    ja: '昼',       en: 'Noon' },
+    { key: 'preW',    ja: 'トレ前',   en: 'Pre-workout' },
+    { key: 'postW',   ja: 'トレ後',   en: 'Post-workout' },
+    { key: 'evening', ja: '夜',       en: 'Evening' },
+    { key: 'bed',     ja: '就寝前',   en: 'Before bed' }
+  ];
+  const slotName = (key) => { const s = SUPP_SLOTS.find(x => x.key === key); return s ? (lang() === 'en' ? s.en : s.ja) : key; };
+  // days: 'all'=毎日 / 'training'=トレ日のみ
+  const SUPP_PRESETS = [
+    { name: 'プロテイン', en: 'Whey Protein', dose: '30g', slots: ['postW'], days: 'all' },
+    { name: 'クレアチン', en: 'Creatine', dose: '5g', slots: ['postW'], days: 'all' },
+    { name: 'EAA', en: 'EAA', dose: '10g', slots: ['preW'], days: 'training' },
+    { name: 'BCAA', en: 'BCAA', dose: '10g', slots: ['preW'], days: 'training' },
+    { name: 'マルチビタミン', en: 'Multivitamin', dose: '1粒', slots: ['morning'], days: 'all' },
+    { name: 'ビタミンD', en: 'Vitamin D', dose: '1粒', slots: ['morning'], days: 'all' },
+    { name: 'ビタミンC', en: 'Vitamin C', dose: '1粒', slots: ['morning'], days: 'all' },
+    { name: 'フィッシュオイル', en: 'Fish Oil', dose: '2粒', slots: ['evening'], days: 'all' },
+    { name: '亜鉛', en: 'Zinc', dose: '1粒', slots: ['bed'], days: 'all' },
+    { name: 'マグネシウム', en: 'Magnesium', dose: '1粒', slots: ['bed'], days: 'all' },
+    { name: 'グルタミン', en: 'Glutamine', dose: '5g', slots: ['postW'], days: 'all' },
+    { name: 'HMB', en: 'HMB', dose: '3g', slots: ['morning'], days: 'all' },
+    { name: 'カフェイン', en: 'Caffeine', dose: '200mg', slots: ['preW'], days: 'training' },
+    { name: 'シトルリン', en: 'Citrulline', dose: '8g', slots: ['preW'], days: 'training' },
+    { name: 'アルギニン', en: 'Arginine', dose: '5g', slots: ['preW'], days: 'training' },
+    { name: '鉄分', en: 'Iron', dose: '1粒', slots: ['morning'], days: 'all' },
+    { name: 'コラーゲン', en: 'Collagen', dose: '10g', slots: ['bed'], days: 'all' },
+    { name: 'プロバイオティクス', en: 'Probiotics', dose: '1粒', slots: ['morning'], days: 'all' }
+  ];
+
   return {
     MUSCLES, muscleMap, muscleName, equipName, subName, isCardioMuscle, SEED_EXERCISES, SEED_VERSION, SUB_ORDER, DEPRECATED_EXERCISES,
     KG_TO_LB, kgToDisplay, displayToKg, unitLabel, fmtNum,
     sessionVolumeKg, sessionSetCount, estimate1RM,
     dateKey, todayKey, fmtDate, fmtDateShort, fmtMonthYear, fmtClock, dow, DOW_JA,
+    SUPP_SLOTS, slotName, SUPP_PRESETS,
     I18N, t, lang
   };
 })();
