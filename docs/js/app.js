@@ -38,7 +38,11 @@
     food: '<path d="M5 2.5v6.5a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2V2.5M8 11V21.5M8 2.5V7M19 14.5V2.5a4.5 4.5 0 0 0-4.5 4.5v5.5c0 1.1.9 2 2 2H19zM19 14.5v7"/>',
     gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9"/>',
     play: '<path d="M8.5 5.2v13.6L19 12z" fill="currentColor" stroke="none"/>',
-    pause: '<path d="M7.5 5.5h2.8v13H7.5zM13.7 5.5h2.8v13h-2.8z" fill="currentColor" stroke="none"/>'
+    pause: '<path d="M7.5 5.5h2.8v13H7.5zM13.7 5.5h2.8v13h-2.8z" fill="currentColor" stroke="none"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+    x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    dots: '<circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
+    info: '<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><circle cx="12" cy="7.8" r="1.2" fill="currentColor" stroke="none"/>'
   };
   const ic = (name, size) => `<svg class="ic"${size ? ` style="width:${size}px;height:${size}px"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[name]}</svg>`;
 
@@ -196,7 +200,7 @@
         return `<div class="menu-card ${isNext ? 'next' : ''}" data-act="${act}">
           <div class="dot ${m.done ? 'on' : ''}"></div>
           <div class="mc-main"><div class="mc-name">${esc(m.name)}</div><div class="mc-sub">${esc(m.sub)}</div></div>
-          ${m.done ? '<span class="mc-check">✓</span>' : (isNext ? '<span class="mc-now">NOW</span>' : '')}
+          ${m.done ? '<span class="mc-check">' + ic('check', 16) + '</span>' : (isNext ? '<span class="mc-now">NOW</span>' : '')}
         </div>`;
       }).join('') + `</div>`;
     } else {
@@ -365,8 +369,8 @@
         <td><span class="setno">${si + 1}</span></td>
         <td><input class="set-in" inputmode="decimal" data-in="duration" data-ex="${ei}" data-set="${si}" value="${set.duration || ''}" placeholder="0"></td>
         <td><input class="set-in" inputmode="decimal" data-in="distance" data-ex="${ei}" data-set="${si}" value="${set.distance || ''}" placeholder="0"></td>
-        <td><button class="set-done ${set.done ? 'on' : ''}" data-act="toggle-set" data-ex="${ei}" data-set="${si}" aria-label="${set.done ? '✓' : ''}" aria-pressed="${set.done}">✓</button></td>
-        <td><button class="set-del" data-act="del-set" data-ex="${ei}" data-set="${si}" aria-label="delete">✕</button></td>
+        <td><button class="set-done ${set.done ? 'on' : ''}" data-act="toggle-set" data-ex="${ei}" data-set="${si}" aria-label="${set.done ? 'done' : ''}" aria-pressed="${set.done}">${ic('check', 15)}</button></td>
+        <td><button class="set-del" data-act="del-set" data-ex="${ei}" data-set="${si}" aria-label="delete">${ic('x', 13)}</button></td>
       </tr>`).join('');
     } else {
       rows = we.sets.map((set, si) => {
@@ -375,8 +379,8 @@
           <td><span class="setno ${set.warmup ? 'warm' : ''}">${set.warmup ? 'W' : setNumber(we, si)}</span></td>
           <td><input class="set-in" inputmode="decimal" data-in="weight" data-ex="${ei}" data-set="${si}" value="${wv}" placeholder="0"></td>
           <td><input class="set-in" inputmode="numeric" data-in="reps" data-ex="${ei}" data-set="${si}" value="${set.reps || ''}" placeholder="0"></td>
-          <td><button class="set-done ${set.done ? 'on' : ''}" data-act="toggle-set" data-ex="${ei}" data-set="${si}" aria-label="${set.done ? '✓' : ''}" aria-pressed="${set.done}">✓</button></td>
-          <td><button class="set-del" data-act="del-set" data-ex="${ei}" data-set="${si}" aria-label="delete">✕</button></td>
+          <td><button class="set-done ${set.done ? 'on' : ''}" data-act="toggle-set" data-ex="${ei}" data-set="${si}" aria-label="${set.done ? 'done' : ''}" aria-pressed="${set.done}">${ic('check', 15)}</button></td>
+          <td><button class="set-del" data-act="del-set" data-ex="${ei}" data-set="${si}" aria-label="delete">${ic('x', 13)}</button></td>
         </tr>`;
       }).join('');
     }
@@ -392,7 +396,7 @@
         <span class="name">${esc(exName(ex))}</span>
         ${ex.muscle ? muscleTag(ex.muscle) : ''}
         <button class="ex-del" data-act="ex-del" data-ex="${ei}" aria-label="${t('remove_ex')}" title="${t('remove_ex')}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
-        <button class="kebab" data-act="ex-menu" data-ex="${ei}" aria-label="menu">⋯</button>
+        <button class="kebab" data-act="ex-menu" data-ex="${ei}" aria-label="menu">${ic('dots', 18)}</button>
       </div>
       <table class="set-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
       ${we.note ? `<div class="small muted" style="padding:0 14px 6px">${esc(we.note)}</div>` : ''}
@@ -911,7 +915,7 @@
   }
   function pickRow(e, showMuscle) {
     const tags = (showMuscle ? muscleTag(e.muscle) : '') + (e.equip ? `<span class="etag">${esc(Data.equipName(e.equip))}</span>` : '');
-    return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}<button class="pick-info" data-act="ex-info" data-id="${e.id}" aria-label="info">ⓘ</button></div>`;
+    return `<div class="pick-row" data-act="do-pick" data-id="${e.id}"><span class="pname">${esc(exName(e))}</span>${tags}<button class="pick-info" data-act="ex-info" data-id="${e.id}" aria-label="info">${ic('info', 16)}</button></div>`;
   }
   // 部位内をサブ部位の見出しでグループ化(サブ無しは先頭にそのまま)
   function renderWithSubs(items) {
@@ -1033,7 +1037,7 @@
       ? `<button data-act="timer-dismiss">${t('ok')}</button>`
       : `<button data-act="timer-add">${t('add30')}</button>
          <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? ic('play', 15) : ic('pause', 15)}</button>
-         <button data-act="timer-skip" aria-label="${t('delete')}">✕</button>`;
+         <button data-act="timer-skip" aria-label="${t('delete')}">${ic('x', 14)}</button>`;
     const label = t(timer.done ? 'rest_done' : (timer.paused ? 'rest_paused' : 'rest_now'));
 
     // 大表示(Timer Plus風の全画面)。設定が large かつ縮小(▾)していない間はこちら
@@ -1132,8 +1136,8 @@
       const cardio = Data.isCardioMuscle(ex.muscle);
       h += `<div style="margin:10px 0"><div class="row" style="margin-bottom:4px"><b>${esc(exName(ex))}</b> ${ex.muscle ? muscleTag(ex.muscle) : ''}</div>`;
       h += we.sets.map((set, i) => cardio
-        ? `<div class="small" style="color:var(--text-dim)">${i + 1}. ${Data.fmtNum(set.duration)}${t('col_min')} / ${Data.fmtNum(set.distance)}km ${set.done ? '✓' : ''}</div>`
-        : `<div class="small" style="color:var(--text-dim)">${set.warmup ? 'W' : setNumber(we, i)}. ${disp(set.weight)}${uLab()} × ${set.reps || 0}${t('col_reps')} ${set.done ? '✓' : ''}</div>`
+        ? `<div class="small" style="color:var(--text-dim)">${i + 1}. ${Data.fmtNum(set.duration)}${t('col_min')} / ${Data.fmtNum(set.distance)}km ${set.done ? ic('check', 11) : ''}</div>`
+        : `<div class="small" style="color:var(--text-dim)">${set.warmup ? 'W' : setNumber(we, i)}. ${disp(set.weight)}${uLab()} × ${set.reps || 0}${t('col_reps')} ${set.done ? ic('check', 11) : ''}</div>`
       ).join('');
       if (we.note) h += `<div class="small muted">${esc(we.note)}</div>`;
       h += `</div>`;
@@ -1345,7 +1349,7 @@
              <label class="field" style="flex:1;margin:0"><span class="lab">${uLab()}</span><input class="num-in" inputmode="decimal" data-in="tpl-weight" data-i="${i}" value="${te.weight != null ? disp(te.weight) : ''}" placeholder="0"></label>`;
         h += `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
           <div class="row" style="margin-bottom:6px"><b style="flex:1">${esc(exName(e))}</b>
-            <button class="set-del" data-act="tpl-del-ex" data-i="${i}" aria-label="delete">✕</button></div>
+            <button class="set-del" data-act="tpl-del-ex" data-i="${i}" aria-label="delete">${ic('x', 13)}</button></div>
           <div class="row">${fields}</div></div>`;
       });
     }
@@ -1690,7 +1694,7 @@
     const we = cur.exercises[ei];
     const ex = Store.exerciseById(we.exerciseId) || { name: '' };
     showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${esc(exName(ex))}</h2>
-      <button class="btn secondary mb" data-act="ex-info" data-id="${we.exerciseId}">${t('about_ex')}</button>
+      <button class="btn secondary mb" data-act="ex-info" data-id="${we.exerciseId}">${ic('info', 14)} ${t('about_ex')}</button>
       <label class="field"><span class="lab">${t('ex_note')}</span><textarea id="exnote">${esc(we.note || '')}</textarea></label>
       <button class="btn mb" data-act="exnote-save">${t('save_note')}</button>
       <div class="row">

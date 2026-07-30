@@ -326,6 +326,9 @@ body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset
 .empty .ic { width: 34px; height: 34px; display: block; margin: 0 auto 10px; opacity: .45; }
 .ng-gear .ic { vertical-align: middle; }
 .timer-bar button .ic, .tb-controls button .ic { vertical-align: -2px; }
+/* ボタン内アイコンは中央に置く(セット✓/✕・⋯メニュー・ピッカーのinfo) */
+.set-done .ic, .set-del .ic, .kebab .ic, .ex-del .ic, .pick-info .ic { vertical-align: middle; display: block; margin: 0 auto; }
+.mc-check .ic { vertical-align: -3px; }
 .abar-int .ic { margin-right: 2px; }
 /* 柱カラーの小ドット(バランス画面のラベル用) */
 .dotc { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; flex: none; }

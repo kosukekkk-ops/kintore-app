@@ -237,7 +237,7 @@ const Data = (() => {
       fu_mark: '✓を付けて保存', fu_drop: '未実施として削除して保存',
       // picker
       pick_title: '種目を選ぶ', search_ph: '種目名・器具で検索', all: 'すべて', no_match: '該当する種目がありません', add_custom: '＋ カスタム種目を追加', recent_ex: '最近使った種目',
-      about_ex: 'ⓘ この種目について', worked_muscles: '鍛える筋肉', bm_front: '正面', bm_back: '背面', pose_label: '動作イメージ', points_label: 'フォームのポイント',
+      about_ex: 'この種目について', worked_muscles: '鍛える筋肉', bm_front: '正面', bm_back: '背面', pose_label: '動作イメージ', points_label: 'フォームのポイント',
       see_images: '画像で見る（Google）', see_video: '動画で見る（YouTube）', info_ext_note: '画像・動画は外部サイト（Google／YouTube）をブラウザで開きます。',
       custom_title: 'カスタム種目を追加', ex_name: '種目名', ex_name_ph: '例: ケーブルクロスオーバー', part: '部位', add_do: '追加する',
       need_name: '種目名を入力してください', ex_added: '種目を追加しました',
@@ -325,7 +325,7 @@ const Data = (() => {
       fu_msg: '{n} sets have no ✓ (done) mark. Count them as performed?',
       fu_mark: 'Mark ✓ and save', fu_drop: 'Remove them and save',
       pick_title: 'Choose exercise', search_ph: 'Search name or gear', all: 'All', no_match: 'No matching exercise', add_custom: '＋ Add custom exercise', recent_ex: 'Recently used',
-      about_ex: 'ⓘ About this exercise', worked_muscles: 'Muscles worked', bm_front: 'Front', bm_back: 'Back', pose_label: 'Movement', points_label: 'Form tips',
+      about_ex: 'About this exercise', worked_muscles: 'Muscles worked', bm_front: 'Front', bm_back: 'Back', pose_label: 'Movement', points_label: 'Form tips',
       see_images: 'See images (Google)', see_video: 'Watch video (YouTube)', info_ext_note: 'Images/videos open Google/YouTube in your browser.',
       custom_title: 'Add custom exercise', ex_name: 'Exercise name', ex_name_ph: 'e.g. Cable Crossover', part: 'Muscle group', add_do: 'Add',
       need_name: 'Please enter a name', ex_added: 'Exercise added',
