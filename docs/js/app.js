@@ -39,6 +39,7 @@
     gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9"/>',
     play: '<path d="M8.5 5.2v13.6L19 12z" fill="currentColor" stroke="none"/>',
     pause: '<path d="M7.5 5.5h2.8v13H7.5zM13.7 5.5h2.8v13h-2.8z" fill="currentColor" stroke="none"/>',
+    pill: '<rect x="3.8" y="8.8" width="16.4" height="6.4" rx="3.2"/><path d="M12 8.8v6.4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
     x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
     dots: '<circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
@@ -184,13 +185,17 @@
     const foodParts = [];
     if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
     if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+    // サプリは3枚目のカードとして独立(入口が食事カード内の文字列だけだと見つけにくい)
     const sp = suppProgress(todayK);
-    if (sp.m) foodParts.push(t('supp_pct', { n: sp.n, m: sp.m }));
+    const hasStack = Store.getSupps().length > 0;
+    const suppVal = hasStack ? (sp.m ? `${sp.n}/${sp.m}` : '—') : '';
     h += `<div class="pillars">
       <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
         <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
       <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('food', 12)} ${t('p_food')}</div>
         <div class="pi-v ${foodParts.length ? '' : 'dim'}">${foodParts.join(' · ') || t('p_log')}</div></div>
+      <div class="pillar" data-act="go-supps"><div class="pi-l">${ic('pill', 12)} ${t('lbl_supp')}</div>
+        <div class="pi-v ${suppVal ? '' : 'dim'} ${sp.m && sp.n === sp.m ? 'ok' : ''}">${suppVal || t('p_log')}</div></div>
     </div>`;
 
     // 今日のメニュー
@@ -1417,7 +1422,8 @@
     }
     const p = suppProgress(today);
     return `<div class="card"><div class="row" style="margin-bottom:4px"><h2 style="margin:0;flex:1">${t('supp_today')}</h2>
-        ${p.m ? `<span class="mono small" style="color:${p.n === p.m ? 'var(--accent)' : 'var(--text-dim)'}">${p.n}/${p.m}</span>` : ''}</div>
+        ${p.m ? `<span class="mono small" style="color:${p.n === p.m ? 'var(--accent)' : 'var(--text-dim)'}">${p.n}/${p.m}</span>` : ''}
+        <button class="h-add" data-act="supp-add" aria-label="${t('supp_add')}">＋</button></div>
       ${inner}
       <button class="link-btn dim" data-act="supps-manage">${t('supp_manage')} ›</button></div>`;
   }
@@ -1735,6 +1741,8 @@
 
     'supp-toggle': (d) => { Store.toggleSuppTaken(Data.todayKey(), d.key); render(); },
     'supps-manage': () => { state.cond.screen = 'supps'; switchTab('condition'); },
+    // ホームのサプリカードから: 登録済みなら今日のチェックリスト(体調タブ先頭)、未登録なら管理画面へ
+    'go-supps': () => { state.cond.screen = Store.getSupps().length ? 'list' : 'supps'; switchTab('condition'); },
     'supps-back': () => { state.cond.screen = 'list'; render(); },
     'supp-add': () => openSuppSheet(null),
     'supp-edit': (d) => openSuppSheet(d.id),

@@ -343,6 +343,12 @@ body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset
 .bt-lab:first-of-type { margin-top: 0; }
 
 /* ---------- サプリ(今日のチェックリスト) ---------- */
+.card .h-add {
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
+  width: 27px; height: 27px; border-radius: 9px; font-size: 15px; line-height: 1;
+  cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center;
+}
+.pillar .pi-v.ok { color: var(--accent); }
 .supp-slot { font: 600 10px var(--font-num); letter-spacing: .1em; color: var(--text-dim); text-transform: uppercase; margin: 12px 0 2px; }
 .supp-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border2); cursor: pointer; }
 .supp-row .sname { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
