@@ -104,13 +104,23 @@
     return renderWorkoutHome();
   }
 
-  // 連続トレ日数(今日未実施でも昨日まで続いていれば維持)
+  const isRestDay = (dateK) => !!(Store.getLog(dateK) || {}).restDay;
+  const isNoFood = (dateK) => !!(Store.getLog(dateK) || {}).noFood;
+
+  // 連続トレ日数(今日未実施でも昨日まで続いていれば維持)。
+  // 休養日は「意図的に休んだ日」なので連続を途切れさせない(日数には数えない)。
   function computeStreak(done) {
     const set = new Set(done.map(s => s.date));
     const d = new Date();
-    if (!set.has(Data.dateKey(d))) d.setDate(d.getDate() - 1);
-    let n = 0;
-    while (set.has(Data.dateKey(d))) { n++; d.setDate(d.getDate() - 1); }
+    if (!set.has(Data.dateKey(d)) && !isRestDay(Data.dateKey(d))) d.setDate(d.getDate() - 1);
+    let n = 0, guard = 0;
+    for (;;) {
+      const k = Data.dateKey(d);
+      if (set.has(k)) n++;
+      else if (!isRestDay(k)) break;
+      d.setDate(d.getDate() - 1);
+      if (++guard > 3650) break;
+    }
     return n;
   }
   // ワークアウト内の1種目が完了か(本番セットが1つ以上あり全て完了)
@@ -184,8 +194,11 @@
       ? `${fmtHM(todayLog.sleepHours)}${todayLog.sleepQuality ? ` <span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : ''}`
       : '';
     const foodParts = [];
-    if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
-    if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+    if (todayLog.noFood) foodParts.push(t('no_food_short'));
+    else {
+      if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
+      if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+    }
     // サプリは3枚目のカードとして独立(入口が食事カード内の文字列だけだと見つけにくい)
     const sp = suppProgress(todayK);
     const hasStack = Store.getSupps().length > 0;
@@ -198,6 +211,18 @@
       <div class="pillar" data-act="go-supps"><div class="pi-l">${ic('pill', 12)} ${t('lbl_supp')}</div>
         <div class="pi-v ${suppVal ? '' : 'dim'} ${sp.m && sp.n === sp.m ? 'ok' : ''}">${suppVal || t('p_log')}</div></div>
     </div>`;
+
+    // 休養日は「サボり」ではなく達成として見せる(記録なしと区別する)
+    const restToday = isRestDay(todayK);
+    if (restToday && !active) {
+      h += `<div class="sec-lbl">${t('sec_today_menu')}</div>`;
+      h += `<div class="rest-card"><div class="rc-main"><div class="rc-name">${ic('moon', 15)} ${t('rest_day_card')}</div>
+        <div class="rc-sub">${t('rest_day_sub')}</div></div>
+        <button class="link-btn dim" data-act="rest-toggle" data-date="${todayK}">${t('rest_day_unset')}</button></div>`;
+      h += `<div class="quick-row"><button class="quick" data-act="start-empty">${t('q_empty_start')}</button>
+        <button class="quick" data-act="rm-calc">${t('rm_calc')}</button></div>`;
+      return h;
+    }
 
     // 今日のメニュー
     h += `<div class="sec-lbl">${active ? t('sec_today_menu') : (menu.length ? t('sec_recommend') : t('sec_menu'))}</div>`;
@@ -223,6 +248,7 @@
     h += `<div class="quick-row">
       <button class="quick" data-act="start-empty">${t('q_empty_start')}</button>
       <button class="quick" data-act="rm-calc">${t('rm_calc')}</button>
+      ${active ? '' : `<button class="quick" data-act="rest-toggle" data-date="${todayK}">${t('rest_day')}</button>`}
     </div>`;
     return h;
   }
@@ -256,7 +282,7 @@
     for (let d = 1; d <= days; d++) {
       const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const has = byDate[key];
-      const cls = has ? 'has' : (key === todayK ? 'today' : '');
+      const cls = has ? 'has' : (isRestDay(key) ? 'rest' : (key === todayK ? 'today' : ''));
       const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
       // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
       h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
@@ -1099,7 +1125,7 @@
     for (let d = 1; d <= days; d++) {
       const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const has = byDate[key];
-      const cls = has ? 'has' : (key === todayK ? 'today' : '');
+      const cls = has ? 'has' : (isRestDay(key) ? 'rest' : (key === todayK ? 'today' : ''));
       const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
       // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
       h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
@@ -1256,25 +1282,33 @@
     const dowOf = (k) => dows[new Date(k + 'T00:00:00').getDay()];
 
     // 1) 今週の記録状況(3本柱×7日のドット)
+    // 各セルは3状態: 'on'=記録あり / 'off'=意図的に休んだ(休養日・食事なし) / ''=未記録
     const rows = [
-      { lab: t('lbl_workout'), color: 'var(--accent)', on: (k) => !!volByDate[k] },
-      { lab: t('lbl_sleep'), color: 'var(--m-arm)', on: (k) => !!(logByDate[k] && logByDate[k].sleepHours) },
-      { lab: t('lbl_food'), color: 'var(--m-shoulder)', on: (k) => !!(logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) }
+      { lab: t('lbl_workout'), color: 'var(--accent)', st: (k) => volByDate[k] ? 'on' : (isRestDay(k) ? 'off' : '') },
+      { lab: t('lbl_sleep'), color: 'var(--m-arm)', st: (k) => (logByDate[k] && logByDate[k].sleepHours) ? 'on' : '' },
+      { lab: t('lbl_food'), color: 'var(--m-shoulder)', st: (k) => (logByDate[k] && (logByDate[k].protein || logByDate[k].calories)) ? 'on' : (isNoFood(k) ? 'off' : '') }
     ];
     // サプリを登録している人にはドット行と順守率も出す
     if (Store.getSupps().length) {
       rows.push({
         lab: t('lbl_supp'), color: 'var(--m-abs)',
-        on: (k) => { const d = dueSupps(k); if (!d.length) return false; const tk = Store.suppTakenSet(k); return d.some(s => s.slots.some(sl => tk.has(s.id + '|' + sl))); }
+        st: (k) => { const d = dueSupps(k); if (!d.length) return ''; const tk = Store.suppTakenSet(k); return d.some(s => s.slots.some(sl => tk.has(s.id + '|' + sl))) ? 'on' : ''; }
       });
     }
     let h = `<div class="card"><h2>${t('bal_status')}</h2><div class="bgrid">`;
     h += `<div class="bg-row bg-head"><span class="bg-lab"></span>${week.map(k => `<span class="bg-c">${dowOf(k)}</span>`).join('')}</div>`;
     rows.forEach(r => {
       h += `<div class="bg-row"><span class="bg-lab"><i class="dotc" style="background:${r.color}"></i>${r.lab}</span>` +
-        week.map(k => `<span class="bg-c"><i class="bg-dot"${r.on(k) ? ` style="background:${r.color}"` : ''}></i></span>`).join('') + `</div>`;
+        week.map(k => {
+          const s = r.st(k);
+          if (s === 'on') return `<span class="bg-c"><i class="bg-dot" style="background:${r.color}"></i></span>`;
+          if (s === 'off') return `<span class="bg-c"><i class="bg-dot off" style="border-color:${r.color}"></i></span>`;
+          return `<span class="bg-c"><i class="bg-dot"></i></span>`;
+        }).join('') + `</div>`;
     });
-    h += `</div></div>`;
+    h += `</div><div class="bg-legend"><span><i class="bg-dot" style="background:var(--text-dim)"></i>${t('legend_on')}</span>
+      <span><i class="bg-dot off" style="border-color:var(--text-dim)"></i>${t('legend_off')}</span>
+      <span><i class="bg-dot"></i>${t('legend_none')}</span></div></div>`;
 
     // 2) 直近7日の達成度: 「記録した日の平均 vs 1日の目標」。
     //    何日やったか(頻度)は上のドット欄が担い、ここは質を見る。
@@ -1534,9 +1568,9 @@
       ? fmtHM(tl.sleepHours) + (tl.sleepQuality ? ` <span class="stars">${'★'.repeat(tl.sleepQuality)}</span>` : '')
       : `<span class="dim">${t('p_log')}</span>`;
     const ft = mealTotals(mealsOf(tl));
-    const foodSub = (ft.kcal || ft.protein)
-      ? `${ft.kcal}kcal${ft.protein ? ' · P' + ft.protein + 'g' : ''}`
-      : `<span class="dim">${t('p_log')}</span>`;
+    const foodSub = tl.noFood ? t('no_food_short')
+      : ((ft.kcal || ft.protein) ? `${ft.kcal}kcal${ft.protein ? ' · P' + ft.protein + 'g' : ''}`
+        : `<span class="dim">${t('p_log')}</span>`);
     const wSub = tl.weight ? `${disp(tl.weight)}${uLab()}` : `<span class="dim">${t('p_log')}</span>`;
     h += `<div class="card"><h2>${Data.fmtDate(today)}</h2>
       <div class="lrow" data-act="go-sleep" data-date="${today}"><div class="lmain">
@@ -1561,10 +1595,14 @@
     } else {
       h += logs.map(l => {
         const parts = [];
+        if (l.restDay) parts.push(t('rest_day'));
         if (l.weight) parts.push(`${disp(l.weight)}${uLab()}`);
         if (l.sleepHours) parts.push(fmtHM(l.sleepHours));
-        if (l.calories) parts.push(`${l.calories}kcal`);
-        if (l.protein) parts.push(`P${l.protein}g`);
+        if (l.noFood) parts.push(t('no_food_short'));
+        else {
+          if (l.calories) parts.push(`${l.calories}kcal`);
+          if (l.protein) parts.push(`P${l.protein}g`);
+        }
         return `<div class="lrow" data-act="go-sleep" data-date="${l.date}">
           <div class="lmain"><div class="ltitle">${Data.fmtDate(l.date)}</div>
           <div class="lsub">${parts.join(t('sep')) || t('note_only')}</div></div>
@@ -1616,11 +1654,17 @@
     const tot = mealTotals(meals);
     const goalC = S().goalCalories || 2000, goalP = S().goalProtein || 120;
     const left = goalC - tot.kcal;
+    const noFood = !!l.noFood;
     let h = `<button class="back-btn" data-act="cond-back">‹ ${state.cond.backTo === 'home' ? t('to_home') : t('h_condition')}</button>`;
     h += `<div class="head"><h1 style="font-size:18px">${ic('food', 16)} ${t('c_food_title')}</h1></div>`;
     h += `<div class="card">
-      <label class="field"><span class="lab">${t('c_date')}</span><input type="date" data-in="c-date" value="${date}"></label>
-      <div class="food-sum">
+      <label class="field"><span class="lab">${t('c_date')}</span><input type="date" data-in="c-date" value="${date}"></label>`;
+    // 食べなかった日を「未記録」と区別して残せるようにする
+    h += `<div class="offrow ${noFood ? 'on' : ''}" data-act="nofood-toggle" data-date="${date}">
+      <div class="or-main"><div class="or-name">${t('no_food')}</div><div class="or-sub">${t('no_food_note')}</div></div>
+      <span class="set-done ${noFood ? 'on' : ''}">${ic('check', 15)}</span></div>`;
+    if (noFood) { h += `</div>`; return h; }
+    h += `<div class="food-sum">
         <div class="fs-main"><span class="fs-n">${tot.kcal}</span><span class="fs-u">/ ${goalC} kcal</span></div>
         <div class="fs-bar"><i style="width:${Math.min(100, tot.kcal / goalC * 100).toFixed(1)}%"></i></div>
         <div class="fs-row"><span class="${left < 0 ? 'over' : ''}">${left >= 0 ? t('food_remain', { v: left }) : t('food_over', { v: -left })}</span>
@@ -1879,6 +1923,12 @@
       saveLogPatch(dt, { weight: raw ? Data.displayToKg(raw, unit()) : null });
       closeSheet(); toast(t('saved')); render();
     },
+    'rest-toggle': (d) => {
+      const on = !isRestDay(d.date);
+      saveLogPatch(d.date, { restDay: on || null });
+      closeSheet(); toast(t(on ? 'rest_day_on' : 'rest_day_off')); render();
+    },
+    'nofood-toggle': (d) => { saveLogPatch(d.date, { noFood: !isNoFood(d.date) || null }); render(); },
     'food-add': (d) => openFoodAdd(d.slot),
     'food-add-save': (d) => {
       const kcal = parseInt(($('#fd-kcal') || {}).value, 10) || 0;
@@ -2106,9 +2156,11 @@
   function openDetail(id) { state.hist.screen = 'detail'; state.hist.sessionId = id; switchTab('history'); }
   function openDayList(date, list) {
     const rows = list.map(s => `<div class="pick-row" data-act="day-open" data-id="${s.id}"><span class="pname">${esc(s.name || t('h_record'))}</span><span class="muted small">${t('n_exercises', { n: s.exercises.length })}</span></div>`).join('');
+    const rest = isRestDay(date);
     showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${Data.fmtDate(date)}</h2>
-      ${rows || `<p class="muted small mb">${t('day_no_record')}</p>`}
-      <button class="btn ${list.length ? 'ghost mt' : ''}" data-act="add-on-date" data-date="${date}">${t('add_on_date')}</button>`);
+      ${rows || `<p class="muted small mb">${rest ? t('rest_day_card') : t('day_no_record')}</p>`}
+      <button class="btn ${list.length ? 'ghost mt' : ''} mb" data-act="add-on-date" data-date="${date}">${t('add_on_date')}</button>
+      <button class="btn secondary" data-act="rest-toggle" data-date="${date}">${rest ? t('rest_day_unset') : t('rest_day_set')}</button>`);
   }
 
   // 記録し忘れた日の追加。あとから足す記録なので最初から「完了」扱いで作り、
