@@ -181,7 +181,7 @@
     // 未記録ならタップで体調タブの今日の入力へ直行(一元管理の入口)。
     const todayLog = Store.getLog(todayK) || {};
     const sleepV = todayLog.sleepHours
-      ? `${Data.fmtNum(todayLog.sleepHours)}h${todayLog.sleepQuality ? ` <span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : ''}`
+      ? `${fmtHM(todayLog.sleepHours)}${todayLog.sleepQuality ? ` <span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : ''}`
       : '';
     const foodParts = [];
     if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
@@ -191,9 +191,9 @@
     const hasStack = Store.getSupps().length > 0;
     const suppVal = hasStack ? (sp.m ? `${sp.n}/${sp.m}` : '—') : '';
     h += `<div class="pillars">
-      <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
+      <div class="pillar" data-act="go-cond-sleep"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
         <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
-      <div class="pillar" data-act="go-cond-today"><div class="pi-l">${ic('food', 12)} ${t('p_food')}</div>
+      <div class="pillar" data-act="go-cond-food"><div class="pi-l">${ic('food', 12)} ${t('p_food')}</div>
         <div class="pi-v ${foodParts.length ? '' : 'dim'}">${foodParts.join(' · ') || t('p_log')}</div></div>
       <div class="pillar" data-act="go-supps"><div class="pi-l">${ic('pill', 12)} ${t('lbl_supp')}</div>
         <div class="pi-v ${suppVal ? '' : 'dim'} ${sp.m && sp.n === sp.m ? 'ok' : ''}">${suppVal || t('p_log')}</div></div>
@@ -1004,7 +1004,7 @@
   // - 体調入力: 削除(既存記録のみ) / 保存
   function syncActionBars(timerShown) {
     const wantWo = state.tab === 'workout' && state.wo.screen === 'session' && !!cur;
-    const wantCond = state.tab === 'condition' && state.cond.screen === 'edit';
+    const wantCond = state.tab === 'condition' && (state.cond.screen === 'sleep' || state.cond.screen === 'food');
     document.body.classList.toggle('has-abar', wantWo || wantCond);
 
     let abar = $('#session-abar');
@@ -1479,60 +1479,189 @@
   }
 
   /* ============ 体調タブ ============ */
+  /* ---- 睡眠・食事の共通ヘルパ ---- */
+  // 就寝/起床から睡眠時間を算出(日をまたぐ場合に対応)
+  function calcSleepHours(bed, wake) {
+    if (!bed || !wake) return null;
+    const b = bed.split(':').map(Number), w = wake.split(':').map(Number);
+    if (b.length < 2 || w.length < 2 || isNaN(b[0]) || isNaN(w[0])) return null;
+    let m = (w[0] * 60 + w[1]) - (b[0] * 60 + b[1]);
+    if (m <= 0) m += 24 * 60;
+    return Math.round(m / 6) / 10;
+  }
+  function fmtHM(hours) {
+    const total = Math.round(hours * 60);
+    const h = Math.floor(total / 60), m = total % 60;
+    return m ? t('sleep_hm', { h, m }) : t('sleep_h', { h });
+  }
+  // 旧データ(合計のみ)は「その他」の1品目として読み込み、以降は品目ベースで扱う
+  function mealsOf(log) {
+    if (Array.isArray(log.meals)) return log.meals;
+    if (log.calories || log.protein) {
+      return [{ id: 'legacy', slot: 'other', name: t('food_legacy'), kcal: log.calories || 0, protein: log.protein || 0 }];
+    }
+    return [];
+  }
+  const mealTotals = (meals) => meals.reduce((a, m) => ({ kcal: a.kcal + (m.kcal || 0), protein: a.protein + (m.protein || 0) }), { kcal: 0, protein: 0 });
+  // 保存: 合計(calories/protein)も同期して書き込み、ホーム/グラフ/バランスの集計をそのまま動かす
+  function saveLogPatch(date, patch) {
+    const cur = Store.getLog(date) || { date };
+    const next = Object.assign({}, cur, patch, { date });
+    if (Array.isArray(next.meals)) {
+      const tot = mealTotals(next.meals);
+      if (tot.kcal) next.calories = tot.kcal; else delete next.calories;
+      if (tot.protein) next.protein = tot.protein; else delete next.protein;
+      if (!next.meals.length) delete next.meals;
+    }
+    Object.keys(next).forEach(k => { if (next[k] === '' || next[k] == null) delete next[k]; });
+    next.date = date;
+    Store.saveLog(next);
+    return next;
+  }
+
   function renderCondition() {
     if (state.cond.screen === 'supps') return renderSuppManage();
-    if (state.cond.screen === 'edit') return renderConditionEdit();
+    if (state.cond.screen === 'sleep') return renderSleepEdit();
+    if (state.cond.screen === 'food') return renderFoodEdit();
     const logs = Store.getLogs();
-    let h = `<div class="head"><h1>${t('h_condition')}</h1><div class="spacer"></div>
-      <button class="icon-btn" data-act="cond-today" aria-label="${t('a_cond_today')}">＋</button></div>`;
+    const today = Data.todayKey();
+    const tl = Store.getLog(today) || {};
+    let h = `<div class="head"><h1>${t('h_condition')}</h1></div>`;
     h += suppTodayCard();
+
+    // 今日の記録: 睡眠 / 食事 / 体重 それぞれ専用の入口
+    const sleepSub = tl.sleepHours
+      ? fmtHM(tl.sleepHours) + (tl.sleepQuality ? ` <span class="stars">${'★'.repeat(tl.sleepQuality)}</span>` : '')
+      : `<span class="dim">${t('p_log')}</span>`;
+    const ft = mealTotals(mealsOf(tl));
+    const foodSub = (ft.kcal || ft.protein)
+      ? `${ft.kcal}kcal${ft.protein ? ' · P' + ft.protein + 'g' : ''}`
+      : `<span class="dim">${t('p_log')}</span>`;
+    const wSub = tl.weight ? `${disp(tl.weight)}${uLab()}` : `<span class="dim">${t('p_log')}</span>`;
+    h += `<div class="card"><h2>${Data.fmtDate(today)}</h2>
+      <div class="lrow" data-act="go-sleep" data-date="${today}"><div class="lmain">
+        <div class="ltitle">${ic('moon', 14)} ${t('c_sleep_title')}</div><div class="lsub">${sleepSub}</div></div>
+        <div class="chev">›</div></div>
+      <div class="lrow" data-act="go-food" data-date="${today}"><div class="lmain">
+        <div class="ltitle">${ic('food', 14)} ${t('c_food_title')}</div><div class="lsub">${foodSub}</div></div>
+        <div class="chev">›</div></div>
+      <div class="lrow" data-act="weight-sheet" data-date="${today}"><div class="lmain">
+        <div class="ltitle">${ic('chart', 14)} ${t('c_weight_title')}</div><div class="lsub">${wSub}</div></div>
+        <div class="chev">›</div></div></div>`;
+
     const weights = logs.filter(l => l.weight).slice().sort((a, b) => a.date.localeCompare(b.date));
     if (weights.length >= 2) {
       const points = weights.slice(-30).map(l => ({ label: Data.fmtDateShort(l.date), value: Data.kgToDisplay(l.weight, unit()) }));
       h += `<div class="card"><h2>${t('weight_trend', { u: uLab() })}</h2>
         <div class="chart-wrap">${Charts.lineAbs(points, { w: 340, h: 190, unit: uLab(), color: 'var(--m-legs)' })}</div></div>`;
     }
-    h += `<button class="btn" data-act="cond-today">${t('cond_today_btn')}</button>`;
-    h += `<div class="card mt"><h2>${t('record_list')}</h2>`;
+    h += `<div class="card"><h2>${t('record_list')}</h2>`;
     if (!logs.length) {
       h += `<p class="muted small">${t('cond_empty')}</p>`;
     } else {
       h += logs.map(l => {
         const parts = [];
         if (l.weight) parts.push(`${disp(l.weight)}${uLab()}`);
-        if (l.sleepHours) parts.push(`${Data.fmtNum(l.sleepHours)}h`);
+        if (l.sleepHours) parts.push(fmtHM(l.sleepHours));
         if (l.calories) parts.push(`${l.calories}kcal`);
         if (l.protein) parts.push(`P${l.protein}g`);
-        return `<div class="lrow" data-act="cond-edit" data-date="${l.date}">
+        return `<div class="lrow" data-act="go-sleep" data-date="${l.date}">
           <div class="lmain"><div class="ltitle">${Data.fmtDate(l.date)}</div>
           <div class="lsub">${parts.join(t('sep')) || t('note_only')}</div></div>
-          <div style="font-size:18px;color:var(--text-dim)">›</div></div>`;
+          <div class="chev">›</div></div>`;
       }).join('');
     }
     h += `</div>`;
     return h;
   }
 
-  function renderConditionEdit() {
+  /* ---- 睡眠(AutoSleep/Apple Sleep式: 就寝・起床から算出し目標と比べる) ---- */
+  function renderSleepEdit() {
     const date = state.cond.date;
     const l = Store.getLog(date) || { date };
-    const q = condQuality;
+    const goal = S().goalSleep || 7.5;
+    const hrs = l.sleepHours != null ? l.sleepHours : calcSleepHours(l.bedTime, l.wakeTime);
+    let dur, note;
+    if (hrs != null) {
+      dur = fmtHM(hrs);
+      const diff = Math.abs(hrs - goal);
+      note = hrs >= goal ? (diff < 0.05 ? t('sleep_goal_met') : t('sleep_over', { v: fmtHM(diff) })) : t('sleep_short', { v: fmtHM(diff) });
+    } else { dur = '—'; note = t('sleep_need_times'); }
+    const met = hrs != null && hrs >= goal;
     let h = `<button class="back-btn" data-act="cond-back">‹ ${state.cond.backTo === 'home' ? t('to_home') : t('h_condition')}</button>`;
-    h += `<div class="head"><h1 style="font-size:18px">${Data.fmtDate(date)}</h1></div>`;
+    h += `<div class="head"><h1 style="font-size:18px">${ic('moon', 16)} ${t('c_sleep_title')}</h1></div>`;
     h += `<div class="card">
-      <label class="field"><span class="lab">${t('c_date')}</span>
-        <input type="date" data-in="c-date" value="${date}"></label>`;
-    h += `
-      <label class="field"><span class="lab">${t('c_weight', { u: uLab() })}</span><input inputmode="decimal" data-in="c-weight" value="${l.weight != null ? disp(l.weight) : ''}" placeholder="0"></label>
-      <label class="field"><span class="lab">${t('c_sleep')}</span><input inputmode="decimal" data-in="c-sleep" value="${l.sleepHours != null ? Data.fmtNum(l.sleepHours) : ''}" placeholder="7"></label>
+      <label class="field"><span class="lab">${t('c_date')}</span><input type="date" data-in="c-date" value="${date}"></label>
+      <div class="row">
+        <label class="field" style="flex:1"><span class="lab">${t('bedtime')}</span><input type="time" data-in="c-bed" value="${l.bedTime || ''}"></label>
+        <label class="field" style="flex:1"><span class="lab">${t('waketime')}</span><input type="time" data-in="c-wake" value="${l.wakeTime || ''}"></label>
+      </div>
+      <div class="sleep-dial ${met ? 'met' : ''}">
+        <div class="sd-lab">${t('sleep_dur')}</div>
+        <div class="sd-val">${dur}</div>
+        <div class="sd-note">${note}</div>
+      </div>
       <label class="field"><span class="lab">${t('c_quality')}</span>
-        <div class="seg" id="sleep-q">${[1, 2, 3, 4, 5].map(v => `<button class="${q === v ? 'active' : ''}" data-act="c-quality" data-v="${v}">${'★'.repeat(v)}</button>`).join('')}</div></label>
-      <label class="field"><span class="lab">${t('c_cal')}</span><input inputmode="numeric" data-in="c-cal" value="${l.calories != null ? l.calories : ''}" placeholder="2000"></label>
-      <label class="field"><span class="lab">${t('c_protein')}</span><input inputmode="numeric" data-in="c-protein" value="${l.protein != null ? l.protein : ''}" placeholder="120"></label>
+        <div class="seg" id="sleep-q">${[1, 2, 3, 4, 5].map(v => `<button class="${condQuality === v ? 'active' : ''}" data-act="c-quality" data-v="${v}">${'★'.repeat(v)}</button>`).join('')}</div></label>
       <label class="field"><span class="lab">${t('c_note')}</span><textarea data-in="c-note" placeholder="${t('c_note_ph')}">${esc(l.note || '')}</textarea></label>
     </div>`;
-    // 保存/削除は下部固定のアクションバー(syncActionBars)に出す
     return h;
+  }
+
+  /* ---- 食事(MyFitnessPal式: 区分ごとに品目を積み、残りkcalを見る) ---- */
+  function renderFoodEdit() {
+    const date = state.cond.date;
+    const l = Store.getLog(date) || { date };
+    const meals = mealsOf(l);
+    const tot = mealTotals(meals);
+    const goalC = S().goalCalories || 2000, goalP = S().goalProtein || 120;
+    const left = goalC - tot.kcal;
+    let h = `<button class="back-btn" data-act="cond-back">‹ ${state.cond.backTo === 'home' ? t('to_home') : t('h_condition')}</button>`;
+    h += `<div class="head"><h1 style="font-size:18px">${ic('food', 16)} ${t('c_food_title')}</h1></div>`;
+    h += `<div class="card">
+      <label class="field"><span class="lab">${t('c_date')}</span><input type="date" data-in="c-date" value="${date}"></label>
+      <div class="food-sum">
+        <div class="fs-main"><span class="fs-n">${tot.kcal}</span><span class="fs-u">/ ${goalC} kcal</span></div>
+        <div class="fs-bar"><i style="width:${Math.min(100, tot.kcal / goalC * 100).toFixed(1)}%"></i></div>
+        <div class="fs-row"><span class="${left < 0 ? 'over' : ''}">${left >= 0 ? t('food_remain', { v: left }) : t('food_over', { v: -left })}</span>
+          <span class="fs-p">P ${tot.protein} / ${goalP} g</span></div>
+      </div>`;
+    Data.MEAL_SLOTS.forEach(slot => {
+      const items = meals.filter(m => m.slot === slot);
+      if (slot === 'other' && !items.length) return; // 「その他」は中身があるときだけ出す
+      const sub = mealTotals(items);
+      h += `<div class="meal-sec"><div class="ms-head"><span class="ms-name">${t('meal_' + slot)}</span>
+        ${sub.kcal ? `<span class="ms-kcal">${sub.kcal} kcal</span>` : ''}</div>`;
+      h += items.map(m => `<div class="meal-item">
+        <span class="mi-name">${esc(m.name || t('meal_' + slot))}</span>
+        <span class="mi-num">${m.kcal || 0}kcal${m.protein ? ' · P' + m.protein : ''}</span>
+        <button class="set-del" data-act="food-del" data-id="${m.id}" aria-label="delete">${ic('x', 13)}</button></div>`).join('');
+      h += `<button class="link-btn" data-act="food-add" data-slot="${slot}">${t('food_add')}</button></div>`;
+    });
+    if (!meals.length) h += `<p class="muted small">${t('food_none')}</p>`;
+    h += `</div>`;
+    return h;
+  }
+  function openFoodAdd(slot) {
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${t('food_add_title')} — ${t('meal_' + slot)}</h2>
+      <label class="field"><span class="lab">${t('food_item')}</span><input id="fd-name" placeholder="${t('meal_' + slot)}"></label>
+      <div class="row">
+        <label class="field" style="flex:1"><span class="lab">${t('food_kcal')}</span><input id="fd-kcal" inputmode="numeric" placeholder="500"></label>
+        <label class="field" style="flex:1"><span class="lab">${t('food_p')}</span><input id="fd-p" inputmode="numeric" placeholder="30"></label>
+      </div>
+      <button class="btn" data-act="food-add-save" data-slot="${slot}">${t('add_do')}</button>`);
+  }
+  function openCond(screen, date, backTo) {
+    state.cond.screen = screen; state.cond.date = date; state.cond.backTo = backTo || null;
+    condQuality = (Store.getLog(date) || {}).sleepQuality || 0;
+  }
+  function openWeightSheet(date) {
+    const l = Store.getLog(date) || {};
+    showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${t('c_weight_title')}</h2>
+      <label class="field"><span class="lab">${t('c_date')}</span><input id="wt-date" type="date" value="${date}"></label>
+      <label class="field"><span class="lab">${t('c_weight', { u: uLab() })}</span>
+        <input id="wt-val" inputmode="decimal" value="${l.weight != null ? disp(l.weight) : ''}" placeholder="70"></label>
+      <button class="btn" data-act="weight-save">${t('save')}</button>`);
   }
   let condQuality = 0;
 
@@ -1567,6 +1696,8 @@
         <label class="field" style="flex:1"><span class="lab">${t('goal_protein')}</span>
           <input inputmode="numeric" data-in="goal-protein" value="${s.goalProtein || 120}"></label>
       </div>
+      <label class="field"><span class="lab">${t('goal_cal')}</span>
+        <input inputmode="numeric" data-in="goal-cal" value="${s.goalCalories || 2000}"></label>
       <p class="muted small">${t('goal_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_rest')}</h2>
       <label class="field"><span class="lab">${t('rest_default')}</span><input inputmode="numeric" data-in="rest-default" value="${s.restDefault}"></label>
@@ -1733,11 +1864,38 @@
     },
     'tpl-delete': () => confirmSheet(t('tpl_del_confirm'), () => { if (state.menu.draft.id) Store.deleteTemplate(state.menu.draft.id); state.menu.screen = 'list'; closeSheet(); render(); }),
 
-    'cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = null; render(); },
+    'cond-today': () => { openCond('sleep', Data.todayKey(), null); render(); },
     // ホームの睡眠/食事カードから: 体調タブへ移動して今日の入力を開く(戻り先はホーム)
-    'go-cond-today': () => { state.cond.date = Data.todayKey(); condQuality = (Store.getLog(state.cond.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = 'home'; switchTab('condition'); },
-    'cond-edit': (d) => { state.cond.date = d.date; condQuality = (Store.getLog(d.date) || {}).sleepQuality || 0; state.cond.screen = 'edit'; state.cond.backTo = null; render(); },
+    // ホームの柱カードから直接それぞれの専用画面へ
+    'go-cond-sleep': () => { openCond('sleep', Data.todayKey(), 'home'); switchTab('condition'); },
+    'go-cond-food': () => { openCond('food', Data.todayKey(), 'home'); switchTab('condition'); },
+    'go-sleep': (d) => { openCond('sleep', d.date, null); render(); },
+    'go-food': (d) => { openCond('food', d.date, null); render(); },
     'cond-back': () => closeCondEdit(),
+    'weight-sheet': (d) => openWeightSheet(d.date),
+    'weight-save': () => {
+      const dt = ($('#wt-date') || {}).value || Data.todayKey();
+      const raw = ($('#wt-val') || {}).value || '';
+      saveLogPatch(dt, { weight: raw ? Data.displayToKg(raw, unit()) : null });
+      closeSheet(); toast(t('saved')); render();
+    },
+    'food-add': (d) => openFoodAdd(d.slot),
+    'food-add-save': (d) => {
+      const kcal = parseInt(($('#fd-kcal') || {}).value, 10) || 0;
+      const pr = parseInt(($('#fd-p') || {}).value, 10) || 0;
+      if (!kcal && !pr) { toast(t('food_need')); return; }
+      const date = state.cond.date;
+      const meals = mealsOf(Store.getLog(date) || {}).slice();
+      meals.push({ id: Store.uid(), slot: d.slot, name: (($('#fd-name') || {}).value || '').trim(), kcal, protein: pr });
+      saveLogPatch(date, { meals });
+      closeSheet(); render();
+    },
+    'food-del': (d) => {
+      const date = state.cond.date;
+      const meals = mealsOf(Store.getLog(date) || {}).filter(m => m.id !== d.id);
+      saveLogPatch(date, { meals });
+      render();
+    },
     'c-quality': (d) => { condQuality = +d.v; $$('#sleep-q button').forEach(b => b.classList.toggle('active', +b.dataset.v === condQuality)); },
 
     'supp-toggle': (d) => { Store.toggleSuppTaken(Data.todayKey(), d.key); render(); },
@@ -1820,13 +1978,32 @@
     if (k === 'tpl-distance') { state.menu.draft.exercises[+el.dataset.i].distance = parseFloat(v) || 0; return; }
     // 体調も記録漏れを埋められるよう日付を選べる(その日の既存記録を読み込み直す)
     if (k === 'c-date') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { state.cond.date = v; condQuality = (Store.getLog(v) || {}).sleepQuality || 0; render(); }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { openCond(state.cond.screen, v, state.cond.backTo); render(); }
+      return;
+    }
+    // 就寝/起床を触ったら睡眠時間の表示を即計算し直す(保存はアクションバーから)
+    if (k === 'c-bed' || k === 'c-wake') {
+      const bed = ($('[data-in="c-bed"]') || {}).value || '', wake = ($('[data-in="c-wake"]') || {}).value || '';
+      const hrs = calcSleepHours(bed, wake);
+      const box = $('.sleep-dial'); if (!box) return;
+      const goal = S().goalSleep || 7.5;
+      if (hrs == null) {
+        box.classList.remove('met');
+        $('.sd-val', box).textContent = '—';
+        $('.sd-note', box).textContent = t('sleep_need_times');
+      } else {
+        const diff = Math.abs(hrs - goal);
+        box.classList.toggle('met', hrs >= goal);
+        $('.sd-val', box).textContent = fmtHM(hrs);
+        $('.sd-note', box).textContent = hrs >= goal ? (diff < 0.05 ? t('sleep_goal_met') : t('sleep_over', { v: fmtHM(diff) })) : t('sleep_short', { v: fmtHM(diff) });
+      }
       return;
     }
     if (k === 'rest-default') { Store.setSettings({ restDefault: Math.max(5, parseInt(v, 10) || 90) }); return; }
     if (k === 'goal-volume') { Store.setSettings({ goalVolume: Math.max(500, Data.displayToKg(v, unit()) || 5000) }); return; }
     if (k === 'goal-sleep') { Store.setSettings({ goalSleep: Math.min(16, Math.max(1, parseFloat(v) || 7.5)) }); return; }
     if (k === 'goal-protein') { Store.setSettings({ goalProtein: Math.max(10, parseInt(v, 10) || 120) }); return; }
+    if (k === 'goal-cal') { Store.setSettings({ goalCalories: Math.max(500, parseInt(v, 10) || 2000) }); return; }
   }
 
   /* ---- サブ処理 ---- */
@@ -1903,16 +2080,19 @@
     const ta = $('#exnote'); if (!ta || exNoteTargetIndex == null || !cur) { closeSheet(); return; }
     cur.exercises[exNoteTargetIndex].note = ta.value; saveCur(); closeSheet(); render(); toast(t('note_saved'));
   }
+  // 睡眠画面の保存(食事は品目追加のたびに即保存されるのでメモ/日付だけ拾う)
   function saveCondition() {
     const g = (sel) => ($('[data-in="' + sel + '"]') || {}).value || '';
-    const log = { date: state.cond.date };
-    const w = g('c-weight'); if (w) log.weight = Data.displayToKg(w, unit());
-    const sl = g('c-sleep'); if (sl) log.sleepHours = parseFloat(sl);
-    if (condQuality) log.sleepQuality = condQuality;
-    const cal = g('c-cal'); if (cal) log.calories = parseInt(cal, 10);
-    const pr = g('c-protein'); if (pr) log.protein = parseInt(pr, 10);
-    const nt = g('c-note'); if (nt.trim()) log.note = nt.trim();
-    Store.saveLog(log);
+    const patch = {};
+    if (state.cond.screen === 'sleep') {
+      const bed = g('c-bed'), wake = g('c-wake');
+      patch.bedTime = bed || null; patch.wakeTime = wake || null;
+      const hrs = calcSleepHours(bed, wake);
+      if (hrs != null) patch.sleepHours = hrs;
+      patch.sleepQuality = condQuality || null;
+    }
+    const nt = g('c-note'); patch.note = nt.trim() || null;
+    saveLogPatch(state.cond.date, patch);
     toast(t('cond_saved'));
     closeCondEdit();
   }
@@ -2001,7 +2181,7 @@
     if (state.tab === 'history' && state.hist.screen === 'detail') { state.hist.screen = 'list'; render(); return true; }
     if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }
     if (state.tab === 'condition' && state.cond.screen === 'supps') { state.cond.screen = 'list'; render(); return true; }
-    if (state.tab === 'condition' && state.cond.screen === 'edit') { closeCondEdit(); return true; }
+    if (state.tab === 'condition' && (state.cond.screen === 'sleep' || state.cond.screen === 'food')) { closeCondEdit(); return true; }
     if (state.tab !== 'workout') { switchTab('workout'); return true; }
     return false; // ホーム最上位。ここでの戻るはアプリ側では扱わない
   }

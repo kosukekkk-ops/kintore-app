@@ -222,6 +222,21 @@ const Data = (() => {
       active_resume: '進行中を開く', active_finish_new: '保存して新しく開始', active_discard_new: '破棄して新しく開始',
       unfinished_title: '未完了のワークアウト', unfinished_hint: 'タップすると続きから記録できます。', badge_unfinished: '未完了',
       close: '閉じる',
+      // 睡眠(専用画面)
+      c_sleep_title: '睡眠', bedtime: '就寝', waketime: '起床', sleep_dur: '睡眠時間',
+      sleep_hm: '{h}時間{m}分', sleep_h: '{h}時間',
+      sleep_need_times: '就寝・起床の時刻を入れると睡眠時間を自動で計算します',
+      sleep_goal_met: '目標達成', sleep_short: '目標まで {v}', sleep_over: '目標 +{v}',
+      // 食事(専用画面)
+      c_food_title: '食事', meal_breakfast: '朝食', meal_lunch: '昼食', meal_dinner: '夕食',
+      meal_snack: '間食', meal_other: 'その他',
+      food_total: '合計', food_remain: '残り {v} kcal', food_over: '{v} kcal オーバー',
+      food_add: '＋ 追加', food_item: '品目名（任意）', food_kcal: 'カロリー（kcal）', food_p: 'タンパク質（g）',
+      food_add_title: '食べたものを追加', food_none: 'まだ記録がありません',
+      food_need: 'カロリーかタンパク質を入れてください', food_legacy: '記録済みの合計',
+      // 体重
+      c_weight_title: '体重', weight_none: '未記録',
+      goal_cal: 'カロリー（kcal）',
       // サプリ
       supp_today: '今日のサプリ', supp_manage: 'サプリを管理', supp_title: 'マイサプリ',
       supp_add: '＋ サプリを追加', supp_edit: 'サプリを編集', supp_name: '名前', supp_dose: '用量（例: 5g / 2粒）',
@@ -328,6 +343,18 @@ const Data = (() => {
       active_resume: 'Open the one in progress', active_finish_new: 'Save it & start new', active_discard_new: 'Discard it & start new',
       unfinished_title: 'Unfinished workouts', unfinished_hint: 'Tap to pick up where you left off.', badge_unfinished: 'unfinished',
       close: 'Close',
+      c_sleep_title: 'Sleep', bedtime: 'Bedtime', waketime: 'Wake up', sleep_dur: 'Time asleep',
+      sleep_hm: '{h}h {m}m', sleep_h: '{h}h',
+      sleep_need_times: 'Enter bedtime and wake-up time to calculate your sleep automatically',
+      sleep_goal_met: 'Goal met', sleep_short: '{v} to goal', sleep_over: '{v} over goal',
+      c_food_title: 'Food', meal_breakfast: 'Breakfast', meal_lunch: 'Lunch', meal_dinner: 'Dinner',
+      meal_snack: 'Snacks', meal_other: 'Other',
+      food_total: 'Total', food_remain: '{v} kcal left', food_over: '{v} kcal over',
+      food_add: '＋ Add', food_item: 'Item name (optional)', food_kcal: 'Calories (kcal)', food_p: 'Protein (g)',
+      food_add_title: 'Add what you ate', food_none: 'Nothing logged yet',
+      food_need: 'Enter calories or protein', food_legacy: 'Logged total',
+      c_weight_title: 'Weight', weight_none: 'Not logged',
+      goal_cal: 'Calories (kcal)',
       supp_today: "Today's supplements", supp_manage: 'Manage supplements', supp_title: 'My supplements',
       supp_add: '＋ Add supplement', supp_edit: 'Edit supplement', supp_name: 'Name', supp_dose: 'Dose (e.g. 5g / 2 caps)',
       supp_slots: 'When to take', supp_days: 'Frequency', supp_days_all: 'Every day', supp_days_training: 'Training days',
@@ -415,6 +442,8 @@ const Data = (() => {
     { key: 'bed',     ja: '就寝前',   en: 'Before bed' }
   ];
   const slotName = (key) => { const s = SUPP_SLOTS.find(x => x.key === key); return s ? (lang() === 'en' ? s.en : s.ja) : key; };
+  // 食事の区分(MyFitnessPal式に食事ごとへ分けて積む)。other は旧データの受け皿も兼ねる
+  const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack', 'other'];
   // days: 'all'=毎日 / 'training'=トレ日のみ
   const SUPP_PRESETS = [
     { name: 'プロテイン', en: 'Whey Protein', dose: '30g', slots: ['postW'], days: 'all' },
@@ -442,7 +471,7 @@ const Data = (() => {
     KG_TO_LB, kgToDisplay, displayToKg, unitLabel, fmtNum,
     sessionVolumeKg, sessionSetCount, estimate1RM,
     dateKey, todayKey, fmtDate, fmtDateShort, fmtMonthYear, fmtClock, dow, DOW_JA,
-    SUPP_SLOTS, slotName, SUPP_PRESETS,
+    SUPP_SLOTS, slotName, SUPP_PRESETS, MEAL_SLOTS,
     I18N, t, lang
   };
 })();

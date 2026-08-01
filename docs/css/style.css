@@ -342,6 +342,37 @@ body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset
 .bt-lab { font: 600 11px var(--font-num); color: var(--text-dim); margin: 12px 0 4px; }
 .bt-lab:first-of-type { margin-top: 0; }
 
+/* ---------- 睡眠(就寝・起床から算出した時間を主役に) ---------- */
+.sleep-dial {
+  background: var(--bg-card2); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 16px; text-align: center; margin-bottom: 14px;
+}
+.sleep-dial .sd-lab { font: 600 10px var(--font-num); letter-spacing: .12em; color: var(--text-dim); text-transform: uppercase; }
+.sleep-dial .sd-val { font: 700 30px var(--font-num); line-height: 1.2; margin: 2px 0; }
+.sleep-dial .sd-note { font-size: 12px; color: var(--text-dim); }
+.sleep-dial.met .sd-val { color: var(--accent); }
+.sleep-dial.met .sd-note { color: var(--accent); }
+
+/* ---------- 食事(合計と残り→区分ごとに品目を積む) ---------- */
+.food-sum { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+.food-sum .fs-main { display: flex; align-items: baseline; gap: 7px; }
+.food-sum .fs-n { font: 700 28px var(--font-num); line-height: 1; }
+.food-sum .fs-u { font-size: 12px; color: var(--text-dim); }
+.food-sum .fs-bar { height: 5px; border-radius: 3px; background: var(--bg-elev); overflow: hidden; margin: 9px 0 7px; }
+.food-sum .fs-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.food-sum .fs-row { display: flex; font-size: 12px; color: var(--text-dim); }
+.food-sum .fs-row .over { color: var(--ng); }
+.food-sum .fs-p { margin-left: auto; font-family: var(--font-mono); }
+.meal-sec { border-top: 1px solid var(--border2); padding-top: 10px; margin-top: 10px; }
+.meal-sec .ms-head { display: flex; align-items: baseline; margin-bottom: 2px; }
+.meal-sec .ms-name { font-weight: 700; font-size: 14px; }
+.meal-sec .ms-kcal { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+.meal-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.meal-item .mi-name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-item .mi-num { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.chev { font-size: 18px; color: var(--text-dim); }
+.lrow .lsub .dim { color: var(--text-mute); }
+
 /* ---------- サプリ(今日のチェックリスト) ---------- */
 .card .h-add {
   background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
