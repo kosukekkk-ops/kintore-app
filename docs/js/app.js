@@ -56,11 +56,31 @@
     ov.className = 'sheet-overlay';
     ov.innerHTML = `<div class="sheet"><div class="grab"></div>${inner}</div>`;
     // 背景タップはこのオーバーレイだけ閉じる(スタック時に下のシートを残す)
-    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    ov.addEventListener('click', (e) => { if (e.target === ov) removeSheet(ov); });
     document.body.appendChild(ov);
+    lockScroll();
     return ov;
   }
-  function closeSheet() { $$('.sheet-overlay').forEach(o => o.remove()); }
+  // シートを1枚閉じる。最後の1枚ならページのスクロール固定も解除する
+  function removeSheet(ov) { if (ov) ov.remove(); if (!$$('.sheet-overlay').length) unlockScroll(); }
+  function closeSheet() { $$('.sheet-overlay').forEach(o => o.remove()); unlockScroll(); }
+
+  /* ---- シート表示中は背後のページをスクロールさせない ----
+   * overscroll-behavior だけでは iOS の慣性で下の画面が動いてしまうため、
+   * body を position:fixed で固定し、閉じるときに元の位置へ戻す。 */
+  let scrollLockY = 0;
+  function lockScroll() {
+    if (document.body.classList.contains('sheet-open')) return;
+    scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.top = `-${scrollLockY}px`;
+    document.body.classList.add('sheet-open');
+  }
+  function unlockScroll() {
+    if (!document.body.classList.contains('sheet-open')) return;
+    document.body.classList.remove('sheet-open');
+    document.body.style.top = '';
+    window.scrollTo(0, scrollLockY);
+  }
   // シート上部の戻る/閉じる。背景タップに気付かない人が行き詰まらないよう全シートに置く。
   const sheetHead = (act, label) => `<div class="info-head"><button class="back-btn" data-act="${act}">‹ ${label}</button></div>`;
 
@@ -128,7 +148,6 @@
     const work = we.sets.filter(s => !s.warmup);
     return work.length > 0 && work.every(s => s.done);
   }
-  const greetWord = () => { const hh = new Date().getHours(); return hh < 5 ? t('greet_night') : hh < 11 ? t('greet_morning') : hh < 18 ? t('greet_day') : t('greet_night'); };
 
   function renderWorkoutHome() {
     const active = Store.getActiveSession();
@@ -165,12 +184,10 @@
     }
     const nextIdx = menu.findIndex(m => !m.done);
 
-    // 歯車は記録中でも常に出す(設定へ到達できなくなるのを防ぐ)
-    let h = `<div class="ng-top">${active ? `<span class="ng-rec">● ${t('rec_badge')}</span>` : ''}<div class="spacer"></div>
+    // 歯車は記録中でも常に出す(設定へ到達できなくなるのを防ぐ)。
+    // 挨拶と「記録中」バッジは情報量が無いので置かず、数値から始める。
+    let h = `<div class="ng-top"><div class="spacer"></div>
       <button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">${ic('gear', 19)}</button></div>`;
-    const subject = active ? (active.name || t('home_training')) : (menu.length && templates[0] ? templates[0].name : t('home_today'));
-    const suffix = active ? t('suf_recording') : (menu.length ? t('suf_dayof') : t('suf_cheer'));
-    h += `<div class="greet">${greetWord()}${t('greet_sep')}<b>${esc(subject)}</b>${suffix}</div>`;
 
     // 進捗リング + 数値
     h += `<div class="ring-row">
@@ -1858,7 +1875,7 @@
     'pick-filter': (d) => { picker.muscle = d.key; refreshPicker(); },
     'do-pick': (d) => { if (picker.onPick) picker.onPick(d.id); },
     'ex-info': (d) => openExerciseInfo(d.id),
-    'info-close': () => { const o = $$('.sheet-overlay'); if (o.length) o[o.length - 1].remove(); },
+    'info-close': () => { const o = $$('.sheet-overlay'); if (o.length) removeSheet(o[o.length - 1]); },
     'info-add': (d) => { if (picker.onPick) picker.onPick(d.id); },
     'new-exercise': () => openNewExercise(),
     // カスタム種目追加は種目ピッカーを置き換えて開くので、戻る時はピッカーを復帰させる
@@ -2228,7 +2245,7 @@
    * 「シート → サブ画面 → 記録タブ」の順に画面内を1段ずつ戻す。 */
   function goBackOne() {
     const sheets = $$('.sheet-overlay');
-    if (sheets.length) { sheets[sheets.length - 1].remove(); return true; }
+    if (sheets.length) { removeSheet(sheets[sheets.length - 1]); return true; }
     if (state.tab === 'workout' && state.wo.screen === 'session') { closeSession(); return true; }
     if (state.tab === 'history' && state.hist.screen === 'detail') { state.hist.screen = 'list'; render(); return true; }
     if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }

@@ -137,11 +137,8 @@ nav.tabbar button.active svg { transform: scale(1.06); }
 /* ---------- home 1c (Night Gym) ---------- */
 .ng-top { display: flex; align-items: center; gap: 10px; min-height: 22px; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
 .ng-top .spacer { flex: 1; }
-.ng-rec { color: var(--accent); }
 .ng-gear { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 0; }
-.greet { margin-top: 8px; font-size: 13px; color: var(--text-dim); }
-.greet b { color: var(--text); font-weight: 700; }
-.ring-row { display: flex; align-items: center; gap: 20px; margin-top: 16px; }
+.ring-row { display: flex; align-items: center; gap: 20px; margin-top: 10px; }
 .ring { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
 .ring .hole { width: 96px; height: 96px; border-radius: 50%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ring .pctn { font: 700 30px var(--font-num); color: var(--text); }
@@ -502,10 +499,13 @@ body.has-abar.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-a
 /* ---------- modal sheet ---------- */
 /* --kb はソフトキーボードの高さ(app.jsのvisualViewport監視が設定)。
    シートを持ち上げて入力欄がキーボードに隠れないようにする */
-.sheet-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(6,10,18,.6); display: flex; align-items: flex-end; animation: fade .2s ease; padding-bottom: var(--kb, 0px); }
+.sheet-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(6,10,18,.6); display: flex; align-items: flex-end; animation: fade .2s ease; padding-bottom: var(--kb, 0px); overscroll-behavior: contain; }
+/* シート表示中は背後のページを固定(スクロールが下の画面へ抜けるのを防ぐ) */
+body.sheet-open { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
 .sheet {
   background: var(--bg-card); border-top-left-radius: 20px; border-top-right-radius: 20px;
-  width: 100%; max-width: 640px; margin: 0 auto; max-height: calc(88vh - var(--kb, 0px)); overflow-y: auto;
+  width: 100%; max-width: 640px; margin: 0 auto; max-height: calc(88vh - var(--kb, 0px));
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); animation: slideup .25s ease;
 }
 @keyframes slideup { from { transform: translateY(100%);} to { transform: none; } }
