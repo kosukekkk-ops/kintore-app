@@ -526,9 +526,15 @@ body.sheet-open { position: fixed; left: 0; right: 0; width: 100%; overflow: hid
 .pick-info { background: none; border: none; color: var(--text-dim); font-size: 17px; cursor: pointer; flex: none; padding: 2px 2px 2px 6px; }
 
 /* 種目情報: 動作イラスト＋筋肉マップ */
-.posefig { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 10px; }
+/* 種目イラストは白背景を前提に描かれている(床の影やベンチのパッドが白)ため、
+   透過PNGを明るいプレートの上に置く。自作SVGは暗い面用の配色なので土台を分ける。 */
+.posefig { margin-bottom: 10px; }
+.posefig .pose-img {
+  width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto;
+  background: #eef1e9; border: 1px solid var(--border); border-radius: 14px; padding: 10px;
+}
+.posefig .pose-svg { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 6px; }
 .posefig svg { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto; }
-.posefig .pose-img { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; border-radius: 10px; }
 .bodymap { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 12px; }
 .bodymap svg { width: 100%; max-width: 320px; height: auto; display: block; margin: 0 auto; }
 /* 外部リンクをボタン風に */
