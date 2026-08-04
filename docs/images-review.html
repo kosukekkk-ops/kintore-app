@@ -1,0 +1,117 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1113">
+<title>種目イラストの点検</title>
+<style>
+  :root{--bg:#0f1113;--panel:#171a1d;--line:#282d31;--tx:#e9edf0;--dim:#9aa3aa;--acc:#c6ff3a;--ng:#ff6b4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+  header{position:sticky;top:0;z-index:10;background:rgba(15,17,19,.95);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:13px 16px}
+  h1{margin:0;font-size:16px}
+  .sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .bar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .bar button{background:var(--panel);border:1px solid var(--line);color:var(--tx);border-radius:999px;padding:7px 13px;font:600 12px inherit;cursor:pointer}
+  .bar button.pri{background:var(--acc);color:#0f1113;border-color:var(--acc)}
+  main{padding:14px;max-width:1200px;margin:0 auto}
+  .cat{font:700 12px inherit;letter-spacing:.14em;color:var(--dim);margin:22px 0 10px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .it{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .12s}
+  .it.bad{border-color:var(--ng);box-shadow:0 0 0 1px var(--ng)}
+  .it .ph{background:#eef1e9;aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+  .it .ph img{width:100%;height:100%;object-fit:contain;display:block}
+  .it .ph.none{background:var(--panel);color:var(--dim);font-size:11px}
+  .it .nm{font-size:12px;padding:8px 10px;line-height:1.4}
+  .it .st{font:700 10px inherit;color:var(--ng);padding:0 10px 8px;display:none}
+  .it.bad .st{display:block}
+  .note{padding:0 10px 10px}
+  .note textarea{width:100%;min-height:52px;background:#101315;border:1px solid var(--line);border-radius:8px;color:var(--tx);font:12px/1.6 inherit;padding:7px;resize:vertical;display:none}
+  .it.bad .note textarea{display:block}
+  .count{position:fixed;right:14px;bottom:14px;background:var(--acc);color:#0f1113;border:0;border-radius:999px;padding:13px 20px;font:700 14px inherit;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:20}
+  dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:16px;max-width:min(720px,92vw);width:100%;padding:18px}
+  dialog::backdrop{background:rgba(0,0,0,.65)}
+  dialog textarea{width:100%;min-height:46vh;background:#101315;border:1px solid var(--line);border-radius:10px;color:var(--tx);font:13px/1.7 inherit;padding:12px}
+  .row{display:flex;gap:8px;margin-top:12px}
+  .row button{flex:1;border-radius:10px;padding:11px;font:700 14px inherit;cursor:pointer;border:1px solid var(--line);background:#101315;color:var(--tx)}
+  .row button.pri{background:var(--acc);color:#0f1113;border-color:var(--acc)}
+</style></head><body>
+
+<header>
+  <h1>種目イラストの点検</h1>
+  <div class="sub">おかしい絵をタップして印を付けてください（例：手足の数が合わない・姿勢が不自然・種目と違う）。自動保存されます。</div>
+  <div class="bar">
+    <button class="pri" onclick="exportAll()">結果を書き出す</button>
+    <button onclick="showBad()">印だけ表示</button>
+    <button onclick="showAll()">全部表示</button>
+    <button onclick="if(confirm('印を全部消します。よろしいですか？')){localStorage.removeItem(KEY);location.reload()}">印を消去</button>
+  </div>
+</header>
+
+<main id="main"></main>
+<button class="count" onclick="exportAll()"><span id="cnt">0</span> 件</button>
+
+<dialog id="dlg">
+  <b>直したいイラスト（このままコピーして渡してください）</b>
+  <textarea id="out" readonly></textarea>
+  <div class="row"><button class="pri" onclick="copyOut()">コピー</button><button onclick="document.getElementById('dlg').close()">閉じる</button></div>
+</dialog>
+
+<script>
+const KEY='kintore-image-review-v1';
+const ITEMS=[{"name":"ベンチプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ダンベルベンチプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"インクラインベンチプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ダンベルフライ","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"チェストプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"インクラインチェストプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"デクラインチェストプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ペックフライ","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ケーブルフライ","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ケーブルクロスオーバー","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"アイソラテラルチェストプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"ハンマーストレングス チェストプレス","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"腕立て伏せ","muscle":"chest","muscleJa":"胸","hasImg":true},{"name":"デッドリフト","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ラットプルダウン","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"フロントラットプルダウン","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"アイソラテラルラットプル","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"懸垂（チンニング）","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"シーテッドロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ローロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"DYロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"アイソラテラルロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"Tバーロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ハイロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ケーブルロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ベントオーバーロウ","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ワンハンドダンベルロウ","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"プルオーバーマシン","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ノーチラス プルオーバー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ハンマーストレングス ローロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"ハンマーストレングス DYロー","muscle":"back","muscleJa":"背中","hasImg":true},{"name":"サイドレイズ","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"ショルダープレス","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"インクラインショルダープレス","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"フロントレイズ","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"リアレイズ","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"スミスマシンショルダープレス","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"ベントオーバーリアレイズ","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"アップライトロー","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"フェイスプル","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"シュラッグ","muscle":"shoulder","muscleJa":"肩","hasImg":true},{"name":"アームカール","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"バーベルカール","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"ダンベルカール","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"ハンマーカール","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"プリーチャーカール","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"トライセプスプレスダウン","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"トライセプスエクステンション","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"シーテッドディップ","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"アシストディップ","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"フレンチプレス","muscle":"arm","muscleJa":"腕","hasImg":true},{"name":"スクワット","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"レッグプレス","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"ハックスクワット","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"スクワットプレス","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"レッグエクステンション","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"プレートロードレッグプレス","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"ブルガリアンスクワット","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"スミスマシン スクワット","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"シーテッドレッグカール","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"ライイングレッグカール","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"スタンディングレッグカール","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"ヒップスラスト","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"グルートドライブ","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"ブーティビルダー","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"グルートマシン","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"アダクター","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"アブダクター","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"シーテッドカーフレイズ","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"スタンディングカーフレイズ","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"レッグプレスカーフ","muscle":"legs","muscleJa":"脚","hasImg":true},{"name":"アブドミナルクランチ","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"クランチ","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"レッグレイズ","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"プランク","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"トーソローテーション","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"バックエクステンション","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"ローマンチェア","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"GHD（グルートハムデベロッパー）","muscle":"abs","muscleJa":"腹・体幹","hasImg":true},{"name":"ランニング","muscle":"cardio","muscleJa":"有酸素","hasImg":false},{"name":"トレッドミル","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"クロストレーナー","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"エアロバイク","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"リカンベントバイク","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"ステアクライマー","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"ローイングエルゴメーター","muscle":"cardio","muscleJa":"有酸素","hasImg":true},{"name":"サイクリング","muscle":"cardio","muscleJa":"有酸素","hasImg":false},{"name":"ウォーキング","muscle":"cardio","muscleJa":"有酸素","hasImg":true}];
+let marks={}; try{marks=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+
+function render(){
+  const main=document.getElementById('main');
+  const cats=[];
+  ITEMS.forEach(i=>{ if(!cats.includes(i.muscleJa)) cats.push(i.muscleJa); });
+  cats.forEach(c=>{
+    const h=document.createElement('div'); h.className='cat'; h.textContent=c; main.appendChild(h);
+    const g=document.createElement('div'); g.className='grid';
+    ITEMS.filter(i=>i.muscleJa===c).forEach(i=>{
+      const d=document.createElement('div'); d.className='it'; d.dataset.name=i.name;
+      d.innerHTML=(i.hasImg
+          ? '<div class="ph"><img loading="lazy" src="exercise-images/'+encodeURIComponent(i.name)+'.png" alt=""></div>'
+          : '<div class="ph none">イラストなし<br>(自作図で表示)</div>')
+        +'<div class="nm">'+i.name+'</div><div class="st">要修正</div>'
+        +'<div class="note"><textarea placeholder="どこがおかしい？(任意)"></textarea></div>';
+      g.appendChild(d);
+    });
+    main.appendChild(g);
+  });
+
+  document.querySelectorAll('.it').forEach(el=>{
+    const n=el.dataset.name, m=marks[n];
+    if(m){ el.classList.add('bad'); el.querySelector('textarea').value=m.note||''; }
+    el.addEventListener('click',e=>{
+      if(e.target.tagName==='TEXTAREA') return;
+      if(el.classList.contains('bad')){ el.classList.remove('bad'); delete marks[n]; }
+      else { el.classList.add('bad'); marks[n]={note:''}; }
+      save();
+    });
+    el.querySelector('textarea').addEventListener('input',ev=>{
+      if(marks[n]) { marks[n].note=ev.target.value; save(); }
+    });
+  });
+  updateCount();
+}
+function save(){ localStorage.setItem(KEY,JSON.stringify(marks)); updateCount(); }
+function updateCount(){ document.getElementById('cnt').textContent=Object.keys(marks).length; }
+function showBad(){ document.querySelectorAll('.it').forEach(el=>el.style.display=el.classList.contains('bad')?'':'none'); }
+function showAll(){ document.querySelectorAll('.it').forEach(el=>el.style.display=''); }
+function exportAll(){
+  const ks=Object.keys(marks);
+  const lines=['# 直したい種目イラスト（'+ks.length+'件）',''];
+  ITEMS.forEach(i=>{ if(!marks[i.name]) return;
+    lines.push('- '+i.name+'（'+i.muscleJa+'）'+(marks[i.name].note?' … '+marks[i.name].note:'')); });
+  if(!ks.length) lines.push('（まだ印がありません）');
+  document.getElementById('out').value=lines.join('\n');
+  document.getElementById('dlg').showModal();
+}
+function copyOut(){
+  const o=document.getElementById('out'); o.removeAttribute('readonly'); o.select();
+  try{ navigator.clipboard.writeText(o.value); }catch(e){ document.execCommand('copy'); }
+  o.setAttribute('readonly',''); alert('コピーしました');
+}
+render();
+</script></body></html>

@@ -37,6 +37,28 @@ function clearOuterBackground(data, W, H) {
   return seen;
 }
 
+/* 外周から届かない白い塊(腕と体の間、フレームに囲まれた隙間など)も背景とみなして消す。
+ * 実測すると背景の隙間は1500〜5200px、マシンのハイライト等は440px以下ときれいに分かれるため、
+ * 一定面積以上の塊だけを対象にして小さな白いディテールは残す。 */
+const ENCLOSED_MIN = 400;
+function clearEnclosedBackground(data, W, H) {
+  const N = W * H;
+  const near = (p) => data[p * 4 + 3] > 10 && data[p * 4] >= 232 && data[p * 4 + 1] >= 232 && data[p * 4 + 2] >= 232;
+  const seen = new Uint8Array(N);
+  for (let s = 0; s < N; s++) {
+    if (seen[s] || !near(s)) continue;
+    const comp = [s]; seen[s] = 1;
+    for (let i = 0; i < comp.length; i++) {        // 配列を伸ばしながら走査(再帰でないのでスタック溢れしない)
+      const p = comp[i], x = p % W, y = (p - x) / W;
+      if (x + 1 < W) { const q = p + 1; if (!seen[q] && near(q)) { seen[q] = 1; comp.push(q); } }
+      if (x - 1 >= 0) { const q = p - 1; if (!seen[q] && near(q)) { seen[q] = 1; comp.push(q); } }
+      if (y + 1 < H) { const q = p + W; if (!seen[q] && near(q)) { seen[q] = 1; comp.push(q); } }
+      if (y - 1 >= 0) { const q = p - W; if (!seen[q] && near(q)) { seen[q] = 1; comp.push(q); } }
+    }
+    if (comp.length >= ENCLOSED_MIN) for (const p of comp) data[p * 4 + 3] = 0;
+  }
+}
+
 // 不透明な画素の外接矩形
 function contentBox(data, W, H) {
   let x0 = W, x1 = -1, y0 = H, y1 = -1;
@@ -60,6 +82,7 @@ function contentBox(data, W, H) {
         .raw().toBuffer({ resolveWithObject: true });
       const W = info.width, H = info.height;
       clearOuterBackground(data, W, H);
+      clearEnclosedBackground(data, W, H);
       const box = contentBox(data, W, H);
       if (!box) { report.push({ f, skip: '中身が空' }); continue; }
 
