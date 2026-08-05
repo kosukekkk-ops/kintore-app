@@ -1017,18 +1017,76 @@
     newExMuscle = 'chest';
   }
 
-  /* ============ レストタイマー(通知音・振動なし。視覚カウントのみ) ============ */
-  const timer = { remain: 0, total: 0, id: null, done: false, paused: false };
+  /* ============ レストタイマー ============
+   * 残り時間は「終了時刻」から毎回計算する。1秒ずつ減らす方式だと、画面を消したり
+   * 他アプリに切り替えた間にタイマーが止まって実際より長く残ってしまうため。
+   * 終了時は音とバイブで知らせる(設定でそれぞれON/OFF)。 */
+  const timer = { remain: 0, total: 0, id: null, done: false, paused: false, endAt: 0, notified: false };
+
+  /* ---- 通知音: 外部ファイルを持たずWebAudioで鳴らす(オフライン対応) ----
+   * iOSはユーザー操作をきっかけにしないと音が出せないので、タイマー開始時に
+   * AudioContextを用意しておく。端末が消音スイッチONのときは鳴らないため、
+   * バイブと併用できるようにしている(バイブはAndroidのみ対応)。 */
+  let audioCtx = null;
+  function primeAudio() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { /* 音が出せない環境は黙って諦める */ }
+  }
+  function beep() {
+    if (!audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // ピッ・ピッ・ピーッ の3音。矩形波だと耳につきすぎるので三角波にする
+      [[0, 0.12, 880], [0.2, 0.12, 880], [0.4, 0.34, 1170]].forEach(([at, dur, hz]) => {
+        const t0 = audioCtx.currentTime + at;
+        const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+        osc.type = 'triangle'; osc.frequency.value = hz;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.32, t0 + 0.015);
+        g.gain.setValueAtTime(0.32, t0 + dur - 0.05);
+        g.gain.linearRampToValueAtTime(0, t0 + dur);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(t0); osc.stop(t0 + dur + 0.02);
+      });
+    } catch (e) { /* 再生失敗は無視 */ }
+  }
+  function notifyRestDone() {
+    if (timer.notified) return;
+    timer.notified = true;
+    const s = S();
+    if (s.restSound !== false) beep();
+    if (s.restVibe !== false && navigator.vibrate) {
+      try { navigator.vibrate([220, 120, 220, 120, 380]); } catch (e) { /* 非対応 */ }
+    }
+  }
+
   function tickStart() {
     stopTimer();
-    timer.id = setInterval(() => {
-      timer.remain -= 1;
-      if (timer.remain <= 0) { timer.remain = 0; stopTimer(); timer.done = true; }
+    timer.id = setInterval(syncTimerFromClock, 250);
+  }
+  // 終了時刻から残りを求め直す(画面を消していた間の経過もここで反映される)
+  function syncTimerFromClock() {
+    if (timer.paused || !timer.endAt) return;
+    const left = Math.max(0, Math.round((timer.endAt - Date.now()) / 1000));
+    const changed = left !== timer.remain;
+    timer.remain = left;
+    if (left <= 0) {
+      stopTimer(); timer.done = true; timer.endAt = 0;
+      notifyRestDone();
       syncTimerBar();
-    }, 1000);
+      return;
+    }
+    if (changed) syncTimerBar();
   }
   function startTimer(sec) {
+    primeAudio(); // 開始のタップを利用して音を出せる状態にしておく
     timer.total = sec; timer.remain = sec; timer.done = false; timer.paused = false;
+    timer.notified = false;
+    timer.endAt = Date.now() + sec * 1000;
     timer.min = false; // 大表示設定なら開始のたびに大きく出す(前回の縮小は引き継がない)
     tickStart();
     syncTimerBar();
@@ -1037,11 +1095,22 @@
   // 一時停止/再開(残り時間は保持)
   function pauseResumeTimer() {
     if (timer.done) return;
-    if (timer.paused) { timer.paused = false; tickStart(); }
-    else { stopTimer(); timer.paused = true; }
+    if (timer.paused) { timer.paused = false; timer.endAt = Date.now() + timer.remain * 1000; tickStart(); }
+    else { stopTimer(); timer.paused = true; timer.endAt = 0; }
     syncTimerBar();
   }
-  function clearTimer() { stopTimer(); timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; syncTimerBar(); }
+  function addTimerSeconds(sec) {
+    timer.total += sec; timer.remain += sec; timer.notified = false;
+    if (timer.done) { timer.done = false; }
+    if (timer.paused) { timer.endAt = 0; }
+    else { timer.endAt = (timer.endAt || Date.now()) + sec * 1000; tickStart(); }
+    syncTimerBar();
+  }
+  function clearTimer() {
+    stopTimer();
+    timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; timer.endAt = 0; timer.notified = false;
+    syncTimerBar();
+  }
   // 下部固定アクションバー。固定にすることでスクロール中にボタンが本文と重ならない。
   // - 記録画面: 破棄 / 完了して保存 / ▶ インターバル(タイマー表示中は隠す)
   // - 体調入力: 削除(既存記録のみ) / 保存
@@ -1768,6 +1837,13 @@
       <div class="row mt"><span class="spacer">${t('timer_style')}</span>
         <div class="seg" style="width:160px"><button class="${s.timerStyle !== 'compact' ? 'active' : ''}" data-act="set-timerstyle" data-v="large">${t('ts_large')}</button>
         <button class="${s.timerStyle === 'compact' ? 'active' : ''}" data-act="set-timerstyle" data-v="compact">${t('ts_small')}</button></div></div>
+      <div class="row mt"><span class="spacer">${t('rest_sound')}</span>
+        <div class="seg" style="width:120px"><button class="${s.restSound !== false ? 'active' : ''}" data-act="set-restsound" data-v="1">${t('on')}</button>
+        <button class="${s.restSound === false ? 'active' : ''}" data-act="set-restsound" data-v="0">${t('off')}</button></div></div>
+      <div class="row mt"><span class="spacer">${t('rest_vibe')}</span>
+        <div class="seg" style="width:120px"><button class="${s.restVibe !== false ? 'active' : ''}" data-act="set-restvibe" data-v="1">${t('on')}</button>
+        <button class="${s.restVibe === false ? 'active' : ''}" data-act="set-restvibe" data-v="0">${t('off')}</button></div></div>
+      <button class="link-btn dim" data-act="rest-test">${t('rest_test')}</button>
       <p class="muted small mt">${t('rest_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_data')}</h2>
       <button class="btn secondary mb" data-act="export">${t('export_btn')}</button>
@@ -1896,7 +1972,7 @@
     'timer-min': () => { timer.min = true; syncTimerBar(); },
     'timer-expand': () => { if (S().timerStyle !== 'compact') { timer.min = false; syncTimerBar(); } },
     'set-timerstyle': (d) => { Store.setSettings({ timerStyle: d.v === 'compact' ? 'compact' : 'large' }); timer.min = false; syncTimerBar(); render(); },
-    'timer-add': () => { timer.remain += 30; timer.total += 30; if (!timer.id && !timer.done) startTimer(timer.remain); else if (timer.done) { timer.done = false; startTimer(timer.remain); } syncTimerBar(); },
+    'timer-add': () => addTimerSeconds(30),
     'timer-skip': () => clearTimer(),
     'timer-dismiss': () => clearTimer(),
 
@@ -2005,6 +2081,10 @@
     'set-lang': (d) => { Store.setSettings({ lang: d.v }); relabelTabs(); render(); },
     'set-accent': (d) => { Store.setAccent(d.v); applyAccent(); render(); },
     'set-restauto': (d) => { Store.setSettings({ restAuto: d.v === '1' }); render(); },
+    'set-restsound': (d) => { Store.setSettings({ restSound: d.v === '1' }); if (d.v === '1') primeAudio(); render(); },
+    'set-restvibe': (d) => { Store.setSettings({ restVibe: d.v === '1' }); render(); },
+    // 実機で鳴るか・震えるかをその場で確かめる(iOSの消音スイッチ確認用)
+    'rest-test': () => { primeAudio(); timer.notified = false; notifyRestDone(); toast(t('rest_test_done')); },
     'contact': () => openContact(),
     'contact-send': () => sendContact(),
     'export': () => doExport(),
@@ -2290,6 +2370,9 @@
       // キーボード表示が落ち着いてからスクロール(即時だと高さ確定前で効かない)
       setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) { /* 古いWebViewは無視 */ } }, 300);
     });
+    // 画面を消していた間にレストが終わっていたら、戻ってきた時点で知らせる
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncTimerFromClock(); });
+    window.addEventListener('focus', syncTimerFromClock);
     // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
     pushBackTrap();
     window.addEventListener('popstate', () => { if (goBackOne()) pushBackTrap(); });

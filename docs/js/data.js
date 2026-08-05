@@ -284,10 +284,12 @@ const Data = (() => {
       ex_removed: '種目を削除しました', ex_del_confirm: '「{name}」を削除しますか？記録したセットも消えます。',
       // timer
       rest: 'レスト', rest_done: '休憩おわり！次のセットへ', ok: 'OK', skip: 'スキップ',
+      rest_sound: '終了時に音', rest_vibe: '終了時にバイブ', rest_test: '音とバイブを試す',
+      rest_test_done: '鳴らしました（消音スイッチがONだと音は出ません）',
       rest_now: 'レスト中', rest_paused: '一時停止中', add30: '+30秒', rest_start: 'レスト', int_fab: 'インターバル',
       pause_lbl: '一時停止', resume_lbl: '再開', minimize_lbl: '小さく表示',
       timer_style: 'タイマー表示', ts_large: '大きく', ts_small: '小さく',
-      rest_hint: 'インターバル（休憩）タイマーは記録画面下の再生ボタン（時間表示つき）で開始します。「セット完了で自動スタート」をONにすると「✓」でも始まります。「+30秒」で延長、一時停止と「✕」削除はタイマー上のボタンから。大きい表示は右上の「▾」で小さくなり、バーをタップすると大きく戻ります。',
+      rest_hint: 'インターバル（休憩）タイマーは記録画面下の再生ボタン（時間表示つき）で開始します。「セット完了で自動スタート」をONにすると「✓」でも始まります。「+30秒」で延長、一時停止と「✕」削除はタイマー上のボタンから。終了時は音とバイブで知らせます（iPhoneは本体の消音スイッチがONだと音が出ません。画面を消していた場合はアプリに戻った時点で鳴ります）。',
       // history
       h_history: '履歴', all_records: 'すべての記録（{n}件）', history_empty: '完了したワークアウトがここに表示されます。',
       col_exercises: '種目', col_sets2: 'セット', col_total: '総量', edit_resume: '編集・再開', del_confirm: 'このワークアウトを削除しますか？',
@@ -403,6 +405,8 @@ const Data = (() => {
       ex_note: 'Exercise note', save_note: 'Save note', move_up: '↑ Up', move_down: '↓ Down', remove_ex: 'Remove this exercise', note_saved: 'Note saved',
       ex_removed: 'Exercise removed', ex_del_confirm: 'Delete "{name}"? Its logged sets will be removed too.',
       rest: 'Rest', rest_done: 'Rest over — next set', ok: 'OK', skip: 'Skip',
+      rest_sound: 'Sound when done', rest_vibe: 'Vibrate when done', rest_test: 'Test sound & vibration',
+      rest_test_done: 'Played (no sound if the silent switch is on)',
       rest_now: 'REST', rest_paused: 'PAUSED', add30: '+30s', rest_start: 'Rest', int_fab: 'Interval',
       pause_lbl: 'Pause', resume_lbl: 'Resume', minimize_lbl: 'Minimize',
       timer_style: 'Timer display', ts_large: 'Large', ts_small: 'Compact',
