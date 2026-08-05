@@ -1054,14 +1054,43 @@
       });
     } catch (e) { /* 再生失敗は無視 */ }
   }
-  function notifyRestDone() {
-    if (timer.notified) return;
-    timer.notified = true;
+  /* ---- 終了アラーム: 「停止」を押すまで鳴らし/震わせ続ける ----
+   * 気付かず放置したときに延々鳴らないよう60秒で自動停止する。
+   * iOSは既定(ambient)だと本体の消音スイッチで音が消えるため、鳴っている間だけ
+   * AudioSessionを playback に切り替えてマナーモードでも聞こえるようにする
+   * (Safari以外には無い機能なので、あれば使う形にしている)。 */
+  const ALARM_EVERY = 1600, ALARM_MAX_MS = 60000;
+  const alarm = { id: null, startedAt: 0 };
+  function setAudioSession(type) {
+    try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (e) { /* 非対応 */ }
+  }
+  function fireAlert() {
     const s = S();
     if (s.restSound !== false) beep();
     if (s.restVibe !== false && navigator.vibrate) {
       try { navigator.vibrate([220, 120, 220, 120, 380]); } catch (e) { /* 非対応 */ }
     }
+  }
+  function startAlarm() {
+    stopAlarm();
+    setAudioSession('playback');
+    alarm.startedAt = Date.now();
+    fireAlert();
+    alarm.id = setInterval(() => {
+      if (Date.now() - alarm.startedAt >= ALARM_MAX_MS) { stopAlarm(); return; }
+      fireAlert();
+    }, ALARM_EVERY);
+  }
+  function stopAlarm() {
+    if (alarm.id) clearInterval(alarm.id);
+    alarm.id = null;
+    setAudioSession('auto');           // 音楽を邪魔しないよう元に戻す
+    if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) { /* 非対応 */ } }
+  }
+  function notifyRestDone() {
+    if (timer.notified) return;
+    timer.notified = true;
+    startAlarm();
   }
 
   function tickStart() {
@@ -1083,6 +1112,7 @@
     if (changed) syncTimerBar();
   }
   function startTimer(sec) {
+    stopAlarm();
     primeAudio(); // 開始のタップを利用して音を出せる状態にしておく
     timer.total = sec; timer.remain = sec; timer.done = false; timer.paused = false;
     timer.notified = false;
@@ -1100,6 +1130,7 @@
     syncTimerBar();
   }
   function addTimerSeconds(sec) {
+    stopAlarm();
     timer.total += sec; timer.remain += sec; timer.notified = false;
     if (timer.done) { timer.done = false; }
     if (timer.paused) { timer.endAt = 0; }
@@ -1107,7 +1138,7 @@
     syncTimerBar();
   }
   function clearTimer() {
-    stopTimer();
+    stopTimer(); stopAlarm();
     timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; timer.endAt = 0; timer.notified = false;
     syncTimerBar();
   }
@@ -1154,7 +1185,7 @@
     }
     const pct = timer.total ? (timer.remain / timer.total * 100) : 0;
     const controls = timer.done
-      ? `<button data-act="timer-dismiss">${t('ok')}</button>`
+      ? `<button data-act="timer-dismiss">${t('stop_alarm')}</button>`
       : `<button data-act="timer-add">${t('add30')}</button>
          <button data-act="timer-pause" aria-label="${t(timer.paused ? 'resume_lbl' : 'pause_lbl')}">${timer.paused ? ic('play', 15) : ic('pause', 15)}</button>
          <button data-act="timer-skip" aria-label="${t('delete')}">${ic('x', 14)}</button>`;
@@ -2084,7 +2115,11 @@
     'set-restsound': (d) => { Store.setSettings({ restSound: d.v === '1' }); if (d.v === '1') primeAudio(); render(); },
     'set-restvibe': (d) => { Store.setSettings({ restVibe: d.v === '1' }); render(); },
     // 実機で鳴るか・震えるかをその場で確かめる(iOSの消音スイッチ確認用)
-    'rest-test': () => { primeAudio(); timer.notified = false; notifyRestDone(); toast(t('rest_test_done')); },
+    'rest-test': () => {
+      primeAudio(); setAudioSession('playback'); fireAlert();
+      setTimeout(() => setAudioSession('auto'), 2500);
+      toast(t('rest_test_done'));
+    },
     'contact': () => openContact(),
     'contact-send': () => sendContact(),
     'export': () => doExport(),
