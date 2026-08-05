@@ -59,6 +59,56 @@ function clearEnclosedBackground(data, W, H) {
   }
 }
 
+/* 床の影や光沢は真っ白に近い色で描かれており、表示に使う台紙(#eef1e9)より明るいため
+ * うっすら浮いて見える。消すとマシンの白いハイライトまで失われるので、
+ * 「ほぼ白」の画素を台紙と同じ色に塗り替えて溶け込ませる。
+ * ハイライトは暗い本体の上にあるので、塗り替えても明暗差は保たれ見え方は変わらない。 */
+const PLATE = [238, 241, 233]; // css の .pose-img の background と揃えること
+function blendWhitesToPlate(data, W, H) {
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 10) continue;
+    if (data[i] >= 226 && data[i + 1] >= 226 && data[i + 2] >= 226) {
+      data[i] = PLATE[0]; data[i + 1] = PLATE[1]; data[i + 2] = PLATE[2];
+    }
+  }
+}
+
+/* 床の影のように薄く広がった部分は、しきい値で切ると小さな白い粒に砕けて残る。
+ * 「絵のどこにも接していない宙に浮いた白」だけを消せば、マシンのハイライト
+ * (必ず本体に接している)を守ったままゴミを取れる。 */
+function clearFloatingSpecks(data, W, H) {
+  const N = W * H;
+  const light = (p) => data[p * 4 + 3] > 10 && data[p * 4] >= 226 && data[p * 4 + 1] >= 226 && data[p * 4 + 2] >= 226;
+  const opaque = (p) => data[p * 4 + 3] > 10;
+  const seen = new Uint8Array(N);
+  const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (let s = 0; s < N; s++) {
+    if (seen[s] || !light(s)) continue;
+    const comp = [s]; seen[s] = 1;
+    for (let i = 0; i < comp.length; i++) {
+      const p = comp[i], x = p % W, y = (p - x) / W;
+      for (const [dx, dy] of NB) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const q = ny * W + nx;
+        if (!seen[q] && light(q)) { seen[q] = 1; comp.push(q); }
+      }
+    }
+    let touchesArt = false;
+    for (const p of comp) {
+      const x = p % W, y = (p - x) / W;
+      for (const [dx, dy] of NB) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const q = ny * W + nx;
+        if (opaque(q) && !light(q)) { touchesArt = true; break; }
+      }
+      if (touchesArt) break;
+    }
+    if (!touchesArt) for (const p of comp) data[p * 4 + 3] = 0;
+  }
+}
+
 // 不透明な画素の外接矩形
 function contentBox(data, W, H) {
   let x0 = W, x1 = -1, y0 = H, y1 = -1;
@@ -83,6 +133,7 @@ function contentBox(data, W, H) {
       const W = info.width, H = info.height;
       clearOuterBackground(data, W, H);
       clearEnclosedBackground(data, W, H);
+      clearFloatingSpecks(data, W, H);
       const box = contentBox(data, W, H);
       if (!box) { report.push({ f, skip: '中身が空' }); continue; }
 
@@ -92,8 +143,13 @@ function contentBox(data, W, H) {
         .extract(box)
         .resize(inner, inner, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png().toBuffer(); // raw入力のままだとtoBuffer()が生画素を返しcompositeで読めない
-      const out = await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      // 縮小するとアンチエイリアスで薄い白がまた生まれるので、仕上げ後にもう一度掃除する
+      const canvas = await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
         .composite([{ input: buf, gravity: 'center' }])
+        .raw().toBuffer({ resolveWithObject: true });
+      clearFloatingSpecks(canvas.data, canvas.info.width, canvas.info.height);
+      blendWhitesToPlate(canvas.data, canvas.info.width, canvas.info.height);
+      const out = await sharp(canvas.data, { raw: { width: canvas.info.width, height: canvas.info.height, channels: 4 } })
         .png({ compressionLevel: 9, palette: true, quality: 90 }).toBuffer(); // 平面的なベクター画は減色で3.5倍軽くなる(劣化は目視で確認済み)
 
       if (!DRY) fs.writeFileSync(p, out);
