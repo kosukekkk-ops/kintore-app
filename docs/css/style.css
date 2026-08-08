@@ -180,6 +180,8 @@ nav.tabbar button.active svg { transform: scale(1.06); }
 .menu-card .mc-now { font: 700 10px var(--font-num); color: var(--accent); letter-spacing: .04em; }
 .cta { margin-top: 20px; background: var(--accent); color: var(--on-accent); border-radius: 16px; padding: 16px; text-align: center; font-weight: 700; font-size: 16px; border: none; width: 100%; cursor: pointer; font-family: inherit; transition: transform .1s; }
 .cta:active { transform: scale(.98); }
+/* メニューを出していないときは詰まって見えないよう余白を足す */
+.cta.solo { margin-top: 26px; }
 .quick-row { display: flex; gap: 10px; margin-top: 12px; }
 .quick { flex: 1; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); border-radius: 12px; padding: 11px; font-family: inherit; font-size: 13px; cursor: pointer; }
 .mt { margin-top: 12px; }

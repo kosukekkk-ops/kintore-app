@@ -165,7 +165,9 @@
     const dispVol = Data.fmtNum(Data.kgToDisplay(todayVol, unit()));
     const dispGoal = Data.fmtNum(Data.kgToDisplay(goal, unit()));
 
-    // メニュー: 進行中はそのセッション、無ければ最新テンプレ、無ければ最近の記録
+    // 記録中のときだけ、その日のメニューと進捗を出す。
+    // 記録していないときにテンプレートを「おすすめ」として並べても押す動機がなく、
+    // CTAもテンプレ名任せで意味の通らない文言になっていたため出さない。
     let menu = [], menuDone = 0, menuTotal = 0, ctaLabel, ctaAct;
     if (active) {
       active.exercises.forEach(we => {
@@ -178,11 +180,6 @@
       });
       menuTotal = menu.length; menuDone = menu.filter(m => m.done).length;
       ctaLabel = t('cta_log_sets'); ctaAct = 'resume';
-    } else if (templates.length) {
-      const tp = templates[0];
-      menu = tp.exercises.map(te => { const ex = Store.exerciseById(te.exerciseId); return { name: ex ? exName(ex) : '(?)', sub: `${te.sets || '-'}set`, done: false, tplId: tp.id }; });
-      menuTotal = menu.length;
-      ctaLabel = t('cta_start_tpl', { name: tp.name }); ctaAct = 'start-tpl'; var ctaId = tp.id;
     } else {
       ctaLabel = t('cta_start_workout'); ctaAct = 'start-empty';
     }
@@ -248,34 +245,29 @@
       h += `<div class="rest-card"><div class="rc-main"><div class="rc-name">${ic('moon', 15)} ${t('rest_day_card')}</div>
         <div class="rc-sub">${t('rest_day_sub')}</div></div>
         <button class="link-btn dim" data-act="rest-toggle" data-date="${todayK}">${t('rest_day_unset')}</button></div>`;
-      h += `<div class="quick-row"><button class="quick" data-act="start-empty">${t('q_empty_start')}</button>
-        <button class="quick" data-act="rm-calc">${t('rm_calc')}</button></div>`;
+      h += `<button class="cta solo" data-act="start-empty">${t('cta_start_workout')}</button>`;
+      h += `<div class="quick-row"><button class="quick" data-act="rm-calc">${t('rm_calc')}</button></div>`;
       return h;
     }
 
-    // 今日のメニュー
-    h += `<div class="sec-lbl">${active ? t('sec_today_menu') : (menu.length ? t('sec_recommend') : t('sec_menu'))}</div>`;
+    // 今日のメニュー(記録中のみ)
     if (menu.length) {
+      h += `<div class="sec-lbl">${t('sec_today_menu')}</div>`;
       h += `<div class="menu-list">` + menu.map((m, i) => {
         const isNext = i === nextIdx;
-        const act = active ? 'resume' : (m.tplId ? `start-tpl" data-id="${m.tplId}` : 'start-empty');
-        return `<div class="menu-card ${isNext ? 'next' : ''}" data-act="${act}">
+        return `<div class="menu-card ${isNext ? 'next' : ''}" data-act="resume">
           <div class="dot ${m.done ? 'on' : ''}"></div>
           <div class="mc-main"><div class="mc-name">${esc(m.name)}</div><div class="mc-sub">${esc(m.sub)}</div></div>
           ${m.done ? '<span class="mc-check">' + ic('check', 16) + '</span>' : (isNext ? '<span class="mc-now">NOW</span>' : '')}
         </div>`;
       }).join('') + `</div>`;
-    } else {
-      h += `<div class="menu-list"><div class="menu-card" data-act="start-empty"><div class="dot"></div>
-        <div class="mc-main"><div class="mc-name">${t('first_workout')}</div><div class="mc-sub mono">${t('tap_to_start')}</div></div><span class="mc-now">START</span></div></div>`;
     }
 
     // 主CTA
-    h += `<button class="cta" data-act="${ctaAct}"${ctaAct === 'start-tpl' ? ` data-id="${ctaId}"` : ''}>${esc(ctaLabel)}</button>`;
+    h += `<button class="cta${menu.length ? '' : ' solo'}" data-act="${ctaAct}">${esc(ctaLabel)}</button>`;
 
-    // クイック導線
+    // クイック導線(記録開始はCTAが担うので「空で開始」は置かない)
     h += `<div class="quick-row">
-      <button class="quick" data-act="start-empty">${t('q_empty_start')}</button>
       <button class="quick" data-act="rm-calc">${t('rm_calc')}</button>
       ${active ? '' : `<button class="quick" data-act="rest-toggle" data-date="${todayK}">${t('rest_day')}</button>`}
     </div>`;
@@ -1509,7 +1501,9 @@
     h += templates.map(tp => `<div class="card tap" data-act="edit-template" data-id="${tp.id}">
       <div class="row"><div class="lmain"><div class="ltitle">${esc(tp.name)}</div>
       <div class="lsub">${tp.exercises.map(te => { const e = Store.exerciseById(te.exerciseId); return e ? esc(exName(e)) : ''; }).filter(Boolean).join('・') || t('no_ex_set')}</div></div>
-      <button class="btn small" data-act="start-tpl" data-id="${tp.id}" onclick="event.stopPropagation()">${t('start')}</button></div></div>`).join('');
+      <button class="btn small" data-act="start-tpl" data-id="${tp.id}">${t('start')}</button></div></div>`).join('');
+    // 「開始」は closest('[data-act]') が内側のボタンを先に拾うのでカードの編集とは競合しない。
+    // 以前は stopPropagation を付けていたが、body への委譲リスナまで止めてしまい開始できなかった。
     return h;
   }
 
