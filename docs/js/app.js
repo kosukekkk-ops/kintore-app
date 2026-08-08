@@ -150,10 +150,14 @@
   }
 
   function renderWorkoutHome() {
-    const active = Store.getActiveSession();
+    const activeAny = Store.getActiveSession();
     const templates = Store.getTemplates();
     const done = Store.getSessions().filter(s => s.done);
     const todayK = Data.todayKey();
+    // 保存し忘れて日をまたいだセッションを「今日の記録」として扱わない。
+    // 昨日の分が今日のリングに乗って「何もしていないのに100%」になるため。
+    const active = (activeAny && activeAny.date === todayK) ? activeAny : null;
+    const staleActive = (activeAny && activeAny.date !== todayK) ? activeAny : null;
     const todayVol = done.filter(s => s.date === todayK).reduce((a, s) => a + Data.sessionVolumeKg(s), 0) + (active ? Data.sessionVolumeKg(active) : 0);
     const goal = Math.max(500, S().goalVolume || 5000);
     const pct = Math.min(100, Math.round(todayVol / goal * 100));
@@ -186,8 +190,16 @@
 
     // 歯車は記録中でも常に出す(設定へ到達できなくなるのを防ぐ)。
     // 挨拶と「記録中」バッジは情報量が無いので置かず、数値から始める。
-    let h = `<div class="ng-top"><div class="spacer"></div>
+    let h = `<div class="ng-top"><span class="ng-date">${Data.fmtDate(todayK)}</span><div class="spacer"></div>
       <button class="ng-gear" data-act="open-settings" aria-label="${t('a_settings')}">${ic('gear', 19)}</button></div>`;
+
+    // 保存し忘れて日をまたいだワークアウトは、今日の記録と混ざらないよう別枠で促す
+    if (staleActive) {
+      h += `<div class="stale-card" data-act="resume-session" data-id="${staleActive.id}">
+        <div class="sc-main"><div class="sc-name">${t('stale_title')}</div>
+          <div class="sc-sub">${Data.fmtDate(staleActive.date)} ・ ${t('n_exercises', { n: staleActive.exercises.length })} ・ ${Data.fmtNum(Data.kgToDisplay(Data.sessionVolumeKg(staleActive), unit()))}${uLab()}</div></div>
+        <span class="chev">›</span></div>`;
+    }
 
     // 進捗リング + 数値
     h += `<div class="ring-row">
