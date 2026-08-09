@@ -1554,23 +1554,23 @@
     dueSupps(dateK).forEach(s => s.slots.forEach(sl => { m++; if (taken.has(s.id + '|' + sl)) n++; }));
     return { n, m };
   }
-  function suppTodayCard() {
+  // 指定日のサプリ・チェックリスト(飲み忘れをあとから埋められるよう日付を受け取る)
+  function suppDayCard(dateK) {
     const supps = Store.getSupps();
-    const today = Data.todayKey();
     let inner;
     if (!supps.length) {
       inner = `<p class="muted small">${t('supp_empty')}</p>`;
     } else {
-      const due = dueSupps(today);
+      const due = dueSupps(dateK);
       if (!due.length) inner = `<p class="muted small">${t('supp_none_today')}</p>`;
       else {
-        const taken = Store.suppTakenSet(today);
+        const taken = Store.suppTakenSet(dateK);
         inner = Data.SUPP_SLOTS.map(slot => {
           const items = due.filter(s => s.slots.includes(slot.key));
           if (!items.length) return '';
           return `<div class="supp-slot">${Data.slotName(slot.key)}</div>` + items.map(s => {
             const key = s.id + '|' + slot.key, on = taken.has(key);
-            return `<div class="supp-row ${on ? 'on' : ''}" data-act="supp-toggle" data-key="${key}">
+            return `<div class="supp-row ${on ? 'on' : ''}" data-act="supp-toggle" data-key="${key}" data-date="${dateK}">
               <span class="sname">${esc(s.name)}</span>${s.dose ? `<span class="sdose">${esc(s.dose)}</span>` : ''}
               <span class="set-done ${on ? 'on' : ''}" aria-hidden="true">${ic('check', 15)}</span>
             </div>`;
@@ -1578,8 +1578,8 @@
         }).join('');
       }
     }
-    const p = suppProgress(today);
-    return `<div class="card"><div class="row" style="margin-bottom:4px"><h2 style="margin:0;flex:1">${t('supp_today')}</h2>
+    const p = suppProgress(dateK);
+    return `<div class="card"><div class="row" style="margin-bottom:4px"><h2 style="margin:0;flex:1">${t('supp_title')}</h2>
         ${p.m ? `<span class="mono small" style="color:${p.n === p.m ? 'var(--accent)' : 'var(--text-dim)'}">${p.n}/${p.m}</span>` : ''}
         <button class="h-add" data-act="supp-add" aria-label="${t('supp_add')}">＋</button></div>
       ${inner}
@@ -1681,12 +1681,20 @@
     if (state.cond.screen === 'sleep') return renderSleepEdit();
     if (state.cond.screen === 'food') return renderFoodEdit();
     const logs = Store.getLogs();
-    const today = Data.todayKey();
+    const todayK = Data.todayKey();
+    // 見ている日。あとから飲み忘れ・記録忘れを埋められるよう、タブ全体で日付を切り替える
+    const today = state.cond.viewDate || todayK;
     const tl = Store.getLog(today) || {};
     let h = `<div class="head"><h1>${t('h_condition')}</h1></div>`;
-    h += suppTodayCard();
+    h += `<div class="daynav">
+      <button class="dn-arrow" data-act="cond-day-shift" data-by="-1" aria-label="${t('day_prev')}">‹</button>
+      <input class="dn-date" type="date" data-in="cond-view-date" value="${today}" max="${todayK}">
+      <button class="dn-arrow" data-act="cond-day-shift" data-by="1" aria-label="${t('day_next')}" ${today >= todayK ? 'disabled' : ''}>›</button>
+      ${today !== todayK ? `<button class="dn-today" data-act="cond-day-today">${t('to_today')}</button>` : ''}
+    </div>`;
+    h += suppDayCard(today);
 
-    // 今日の記録: 睡眠 / 食事 / 体重 それぞれ専用の入口
+    // その日の記録: 睡眠 / 食事 / 体重 それぞれ専用の入口
     const sleepSub = tl.sleepHours
       ? fmtHM(tl.sleepHours) + (tl.sleepQuality ? ` <span class="stars">${'★'.repeat(tl.sleepQuality)}</span>` : '')
       : `<span class="dim">${t('p_log')}</span>`;
@@ -1726,7 +1734,8 @@
           if (l.calories) parts.push(`${l.calories}kcal`);
           if (l.protein) parts.push(`P${l.protein}g`);
         }
-        return `<div class="lrow" data-act="go-sleep" data-date="${l.date}">
+        // タップでその日に切り替える(睡眠・食事・サプリをまとめて編集できる)
+        return `<div class="lrow ${l.date === today ? 'sel' : ''}" data-act="cond-view-set" data-date="${l.date}">
           <div class="lmain"><div class="ltitle">${Data.fmtDate(l.date)}</div>
           <div class="lsub">${parts.join(t('sep')) || t('note_only')}</div></div>
           <div class="chev">›</div></div>`;
@@ -2078,7 +2087,17 @@
     },
     'c-quality': (d) => { condQuality = +d.v; $$('#sleep-q button').forEach(b => b.classList.toggle('active', +b.dataset.v === condQuality)); },
 
-    'supp-toggle': (d) => { Store.toggleSuppTaken(Data.todayKey(), d.key); render(); },
+    'supp-toggle': (d) => { Store.toggleSuppTaken(d.date || Data.todayKey(), d.key); render(); },
+    // 体調タブの日付切り替え(今日より先には進めない)
+    'cond-day-shift': (d) => {
+      const base = state.cond.viewDate || Data.todayKey();
+      const x = new Date(base + 'T00:00:00'); x.setDate(x.getDate() + (+d.by));
+      const next = Data.dateKey(x);
+      if (next > Data.todayKey()) return;
+      state.cond.viewDate = next; render();
+    },
+    'cond-day-today': () => { state.cond.viewDate = Data.todayKey(); render(); },
+    'cond-view-set': (d) => { state.cond.viewDate = d.date; render(); window.scrollTo(0, 0); },
     'supps-manage': () => { state.cond.screen = 'supps'; switchTab('condition'); },
     // ホームのサプリカードから: 登録済みなら今日のチェックリスト(体調タブ先頭)、未登録なら管理画面へ
     'go-supps': () => { state.cond.screen = Store.getSupps().length ? 'list' : 'supps'; switchTab('condition'); },
@@ -2165,8 +2184,16 @@
     if (k === 'tpl-duration') { state.menu.draft.exercises[+el.dataset.i].duration = parseFloat(v) || 0; return; }
     if (k === 'tpl-distance') { state.menu.draft.exercises[+el.dataset.i].distance = parseFloat(v) || 0; return; }
     // 体調も記録漏れを埋められるよう日付を選べる(その日の既存記録を読み込み直す)
+    if (k === 'cond-view-date') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+      // max属性だけでは手入力を防げないので、未来日は今日に丸めて描き直す
+      state.cond.viewDate = v > Data.todayKey() ? Data.todayKey() : v;
+      render();
+      return;
+    }
     if (k === 'c-date') {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { openCond(state.cond.screen, v, state.cond.backTo); render(); }
+      // 入力画面で日付を変えたら、一覧に戻ったときも同じ日を見ているようにする
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { state.cond.viewDate = v; openCond(state.cond.screen, v, state.cond.backTo); render(); }
       return;
     }
     // 就寝/起床を触ったら睡眠時間の表示を即計算し直す(保存はアクションバーから)

@@ -404,6 +404,16 @@ body.has-timer #app { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset
 .chev { font-size: 18px; color: var(--text-dim); }
 .lrow .lsub .dim { color: var(--text-mute); }
 
+/* ---------- 体調タブの日付切り替え ---------- */
+.daynav { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.daynav .dn-date { flex: 1; min-width: 0; text-align: center; font-family: var(--font-mono); font-size: 14px; padding: 9px 10px; }
+.daynav .dn-arrow { flex: none; width: 40px; height: 40px; border-radius: 12px; font-size: 19px; line-height: 1;
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+.daynav .dn-arrow:disabled { opacity: .35; cursor: default; }
+.daynav .dn-today { flex: none; background: none; border: 1px solid var(--border); color: var(--accent);
+  border-radius: 12px; padding: 0 12px; height: 40px; font: 600 12px inherit; cursor: pointer; white-space: nowrap; }
+.lrow.sel { background: var(--bg-hi); border-radius: 10px; }
+
 /* ---------- サプリ(今日のチェックリスト) ---------- */
 .card .h-add {
   background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);

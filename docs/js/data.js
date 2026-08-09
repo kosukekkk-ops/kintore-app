@@ -242,6 +242,7 @@ const Data = (() => {
       food_add_title: '食べたものを追加', food_none: 'まだ記録がありません',
       food_need: 'カロリーかタンパク質を入れてください', food_legacy: '記録済みの合計',
       // 体重
+      day_prev: '前の日', day_next: '次の日', to_today: '今日へ',
       c_weight_title: '体重', weight_none: '未記録',
       goal_cal: 'カロリー（kcal）',
       // サプリ
@@ -370,6 +371,7 @@ const Data = (() => {
       food_add: '＋ Add', food_item: 'Item name (optional)', food_kcal: 'Calories (kcal)', food_p: 'Protein (g)',
       food_add_title: 'Add what you ate', food_none: 'Nothing logged yet',
       food_need: 'Enter calories or protein', food_legacy: 'Logged total',
+      day_prev: 'Previous day', day_next: 'Next day', to_today: 'Today',
       c_weight_title: 'Weight', weight_none: 'Not logged',
       goal_cal: 'Calories (kcal)',
       supp_today: "Today's supplements", supp_manage: 'Manage supplements', supp_title: 'My supplements',
