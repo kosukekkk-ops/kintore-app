@@ -14,3 +14,33 @@ _check-*.png
 # 種目画像の元グリッド(大容量・未使用)はコミットしない。切り出し済みの個別pngのみ公開する
 docs/exercise-images/ChatGPT*
 docs/exercise-images/_*
+
+# 秘密鍵・証明書は絶対にコミットしない(App Store Connect APIキー等)
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+
+# Capacitorがdocs/からコピーする生成物(cap syncで再生成される)
+android/app/src/main/assets/public/
+ios/App/App/public/
+
+# ネイティブビルド出力
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+ios/App/build/
+ios/App/Pods/
+ios/App/output/
+ios/DerivedData/
+
+# スクリーンショット生成の中間物(store/ 配下の完成品のみコミットする)
+tools/screenshots/site/
+tools/screenshots/out/
+tools/screenshots/store/
+tools/screenshots/profile/
+
+# 撮影・確認用に一時生成するページ(アプリのIPAには含めない)
+docs/_*.html

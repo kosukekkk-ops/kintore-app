@@ -1,0 +1,33 @@
+{
+  "name": "kintore-app",
+  "version": "1.0.0",
+  "description": "トレログ — 筋トレ・睡眠・食事を一元管理するトレーニング記録アプリ",
+  "main": "server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kosukekkk-ops/kintore-app.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "private": "true",
+  "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capgo/native-purchases": "^8.6.4"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "sharp": "^0.35.3"
+  }
+}

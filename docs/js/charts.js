@@ -19,9 +19,21 @@ const Charts = (() => {
     if (!points.length) return '';
     const vals = points.map(p => p.value);
     let lo = Math.min(...vals), hi = Math.max(...vals);
+    // マイナスになり得ない系列(負荷量・睡眠時間・たんぱく質)かどうかは
+    // 「同値ずらし」や余白を足す前の生データで判定する
+    const allPositive = lo >= 0;
     if (lo === hi) { lo = lo - 1; hi = hi + 1; }       // 全て同値なら軸をずらす
     const span = hi - lo;
     lo = lo - span * 0.12; hi = hi + span * 0.12;      // 上下に余白
+    // 余白のせいで軸に「-604.8」のような存在しない値が出るのを防ぐ
+    if (allPositive && lo < 0) {
+      lo = 0;
+      // 下端が0に揃ったので、上端もキリのいい数へ丸めて 0 / 半分 / 上端 の3点を読みやすくする。
+      // 刻みを細かく用意しないと(例: 5600→10000のように)グラフの上半分が空になる。
+      const pow = Math.pow(10, Math.floor(Math.log10(hi || 1)));
+      const nice = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(m => hi <= pow * m) || 10;
+      hi = nice * pow;
+    }
     const padL = 40, padR = 12, padT = 14, padB = 26;
     const iw = w - padL - padR, ih = h - padT - padB;
     const n = points.length;

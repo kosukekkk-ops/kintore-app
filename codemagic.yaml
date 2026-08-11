@@ -1,0 +1,907 @@
+# codemagic.yaml — Capacitor iOSアプリ「トレログ」をクラウド(Mac不要)でビルドし、
+# App Store Connect(TestFlight/審査提出)へアップロードする設定。
+#
+# 【Codemagic側で1回だけ行う準備 = 環境変数を4つ登録するだけ】
+# アプリの Environment variables タブで Group名 "appstore" を作り、以下を追加する
+# (いずれも Secure=ON。FE対策アプリで登録済みの値をそのまま流用できる):
+#   APP_STORE_CONNECT_ISSUER_ID       … Issuer ID
+#   APP_STORE_CONNECT_KEY_IDENTIFIER  … Key ID
+#   APP_STORE_CONNECT_PRIVATE_KEY     … ダウンロードした .p8 ファイルの中身
+#   CERTIFICATE_PRIVATE_KEY           … 署名証明書用の固定RSA秘密鍵(PKCS#1)。
+#                                        ローカルの C:\Users\kosuk\Documents\codemagic_cert_key.pem の中身。
+#                                        毎ビルド生成にすると証明書が増殖しApple上限(2枚)で詰むため固定。
+#
+# 【FE対策アプリとの違い】
+# アプリの数値ID(Apple ID)とIAPのIDを手で貼らず、バンドルID/プロダクトIDから毎回APIで
+# 引き当てる。IDの貼り間違いで別アプリを更新してしまう事故が起きないようにするため。
+#
+# 【実行順】
+#   1. ios-release        … ビルド → TestFlight (最初の1回でバンドルIDも自動発行される)
+#   2. iap-setup          … プレミアム(¥720・非消耗型)をApp Store Connectに作成
+#   3. release-prep       … 掲載メタデータ・審査連絡先・年齢制限・価格(無料)を登録
+#   4. screenshots-upload … store/screenshots/*.png をアップロード
+#   5. release-submit     … 最新ビルドを紐付け、バージョン＋IAPを審査へ提出
+#   status-check          … いつでも実行可(読み取り専用の状態確認)
+#   fix-availability      … どのストアにも出ないときの配信地域の修復
+
+workflows:
+  # ================= 1. ビルドしてTestFlightへ =================
+  ios-release:
+    name: iOS Release (App Store)
+    instance_type: mac_mini_m2       # クラウド上の実機Mac(無料枠 月500分)
+    max_build_duration: 60
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+      node: 22          # Capacitor CLIがNode >=22を要求するため
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+      - name: Strip dev-only pages from the web bundle
+        script: |
+          # docs/ はGitHub Pagesの公開ディレクトリでもあるため、レビュー用の
+          # 巨大な内部ページが混じっている。アプリのIPAには含めない。
+          rm -f docs/screens.html docs/images-review.html docs/_*.html
+          ls -la docs/
+      - name: Sync Capacitor iOS (docs/ → ネイティブへコピー)
+        script: npx cap sync ios
+      - name: Set up code signing (API keyで証明書・プロファイルを自動発行)
+        script: |
+          keychain initialize
+          # 証明書用の秘密鍵は環境変数の固定鍵を使う。
+          # ※ビルド内でその都度生成すると毎回別の証明書が必要になり、
+          #   AppleのDistribution証明書上限(2枚)に達して3回目以降必ず失敗する。
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          # App登録前(初回)はアプリが存在しないので0扱い → ビルド番号1から始まる。
+          APP_ID=$(python3 - <<'PY' || echo ""
+          import os, json, subprocess, urllib.request, urllib.error, urllib.parse
+          VENV_PY = os.environ['VENV_PY']
+          MINT = ("import os\n"
+                  "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+                  "c = AppStoreConnectApiClient(\n"
+                  "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+                  "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+                  "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+                  "print(c.jwt)\n")
+          tok = subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+          bid = os.environ['BUNDLE_ID'].strip()
+          req = urllib.request.Request(
+              'https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1',
+              headers={'Authorization': 'Bearer ' + tok})
+          try:
+              with urllib.request.urlopen(req) as r:
+                  d = json.loads(r.read())
+              print(d['data'][0]['id'] if d.get('data') else '')
+          except Exception:
+              print('')
+          PY
+          )
+          echo "APP_ID=[$APP_ID]"
+          # TestFlight上の最新ビルド番号+1を採番(重複アップロード防止)。
+          # get-latest-app-store-build-number は「App Storeで公開済み」の番号しか見ないため、
+          # 未公開のうちは常に0が返り毎回同じ番号になって重複エラー(409)を起こす。
+          if [ -n "$APP_ID" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_ID" 2>/dev/null || echo "0")
+          else
+            LATEST=0
+          fi
+          LATEST=${LATEST:-0}
+          echo "latest testflight build = $LATEST"
+          cd ios/App
+          agvtool new-version -all $(($LATEST + 1))
+      - name: Build ipa for distribution
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true     # まずTestFlight(自分の端末で最終確認)へ
+
+  # ================= 2. IAP商品(プレミアム¥720・非消耗型)の作成 =================
+  # 有料App契約が有効になってから実行する。冪等(既存ならスキップ)。
+  iap-setup:
+    name: IAP product setup (premium)
+    instance_type: mac_mini_m2
+    max_build_duration: 15
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+        PRODUCT_NAME: "プレミアム(全機能解放)"
+        PRODUCT_DESC: "種目別の詳しい分析、3本柱の14日推移、メニューとサプリの無制限登録、バックアップの書き出しを永続解放します。"
+        PRICE_JPY: "720"
+    scripts:
+      - name: Create non-consumable IAP with JPY base price
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, subprocess, urllib.request, urllib.error, urllib.parse
+
+          PID = os.environ['PRODUCT_ID']
+          PNAME = os.environ['PRODUCT_NAME']
+          PDESC = os.environ['PRODUCT_DESC']
+          PRICE = os.environ['PRICE_JPY']
+          VENV_PY = os.environ['VENV_PY']
+
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+
+          def api(method, path, body=None):
+              req = urllib.request.Request(
+                  'https://api.appstoreconnect.apple.com' + path, method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={'Authorization': 'Bearer ' + token(),
+                           'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      d = r.read()
+                      return r.status, json.loads(d) if d else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          # 0) バンドルIDからアプリを特定(数値IDを手で貼らない)
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('GET', '/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          assert s == 200 and d['data'], f'bundleId={bid} のAppが見つかりません: {d}'
+          APP = d['data'][0]['id']
+          print('app:', APP, d['data'][0]['attributes'].get('name'), flush=True)
+
+          # 1) 既存確認(冪等)
+          s, d = api('GET', f'/v1/apps/{APP}/inAppPurchasesV2?filter[productId]={urllib.parse.quote(PID)}')
+          assert s == 200, d
+          if d['data']:
+              iap = d['data'][0]
+              print('IAP already exists:', iap['id'], iap['attributes'].get('state'), flush=True)
+          else:
+              s, d = api('POST', '/v2/inAppPurchases', {'data': {
+                  'type': 'inAppPurchases',
+                  'attributes': {'name': PNAME, 'productId': PID,
+                                 'inAppPurchaseType': 'NON_CONSUMABLE'},
+                  'relationships': {'app': {'data': {'type': 'apps', 'id': APP}}}}})
+              assert s == 201, d
+              iap = d['data']
+              print('IAP created:', iap['id'], flush=True)
+          iid = iap['id']
+
+          # 2) 日本語ローカリゼーション(表示名・説明)
+          s, d = api('GET', f'/v2/inAppPurchases/{iid}/inAppPurchaseLocalizations')
+          have_ja = s == 200 and any(l['attributes'].get('locale') == 'ja' for l in d.get('data', []))
+          if not have_ja:
+              s, d = api('POST', '/v1/inAppPurchaseLocalizations', {'data': {
+                  'type': 'inAppPurchaseLocalizations',
+                  'attributes': {'locale': 'ja', 'name': PNAME, 'description': PDESC},
+                  'relationships': {'inAppPurchaseV2': {'data': {'type': 'inAppPurchases', 'id': iid}}}}})
+              print('ja localization:', s, json.dumps(d)[:200], flush=True)
+          else:
+              print('ja localization exists', flush=True)
+
+          # 3) 価格: 日本の価格ポイントから¥720を探して基準価格に設定
+          pts, cursor = [], f'/v2/inAppPurchases/{iid}/pricePoints?filter[territory]=JPN&limit=200'
+          while cursor:
+              s, d = api('GET', cursor)
+              assert s == 200, d
+              pts += d['data']
+              nxt = (d.get('links') or {}).get('next')
+              cursor = nxt.replace('https://api.appstoreconnect.apple.com', '') if nxt else None
+          target = next((p for p in pts if p['attributes'].get('customerPrice') == PRICE), None)
+          assert target, f'price point {PRICE} not found in {len(pts)} points'
+          s, d = api('POST', '/v1/inAppPurchasePriceSchedules', {
+              'data': {'type': 'inAppPurchasePriceSchedules',
+                       'relationships': {
+                           'inAppPurchase': {'data': {'type': 'inAppPurchases', 'id': iid}},
+                           'baseTerritory': {'data': {'type': 'territories', 'id': 'JPN'}},
+                           'manualPrices': {'data': [{'type': 'inAppPurchasePrices', 'id': '${price1}'}]}},
+                       },
+              'included': [{'type': 'inAppPurchasePrices', 'id': '${price1}',
+                            'attributes': {'startDate': None},
+                            'relationships': {
+                                'inAppPurchasePricePoint': {'data': {'type': 'inAppPurchasePricePoints', 'id': target['id']}},
+                                'inAppPurchaseV2': {'data': {'type': 'inAppPurchases', 'id': iid}}}}]})
+          print('price schedule:', s, json.dumps(d)[:200], flush=True)
+
+          # 4) 全地域で販売可能に
+          s, d = api('GET', '/v1/territories?limit=200')
+          assert s == 200, d
+          terrs = [{'type': 'territories', 'id': t['id']} for t in d['data']]
+          s, d = api('POST', '/v1/inAppPurchaseAvailabilities', {
+              'data': {'type': 'inAppPurchaseAvailabilities',
+                       'attributes': {'availableInNewTerritories': True},
+                       'relationships': {
+                           'inAppPurchase': {'data': {'type': 'inAppPurchases', 'id': iid}},
+                           'availableTerritories': {'data': terrs}}}})
+          print('availability:', s, json.dumps(d)[:200], flush=True)
+
+          # 5) 最終状態
+          s, d = api('GET', f'/v2/inAppPurchases/{iid}')
+          print('=== IAP STATE ===')
+          print(json.dumps(d.get('data', {}).get('attributes', {}), ensure_ascii=False))
+          PY
+
+  # ================= 3. 掲載メタデータ・審査情報の一括登録 =================
+  release-prep:
+    name: App Store release prep (metadata)
+    instance_type: mac_mini_m2
+    max_build_duration: 15
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+    scripts:
+      - name: Set store metadata + review details + IAP screenshot
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, hashlib, subprocess, urllib.request, urllib.error, urllib.parse
+
+          VENV_PY = os.environ['VENV_PY']
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+
+          def api(method, path, body=None):
+              req = urllib.request.Request(
+                  'https://api.appstoreconnect.apple.com' + path, method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={'Authorization': 'Bearer ' + token(),
+                           'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      d = r.read()
+                      return r.status, json.loads(d) if d else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('GET', '/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          assert s == 200 and d['data'], f'bundleId={bid} のAppが見つかりません: {d}'
+          APP = d['data'][0]['id']
+          PID = os.environ['PRODUCT_ID'].strip()
+          s, d = api('GET', f'/v1/apps/{APP}/inAppPurchasesV2?filter[productId]=' + urllib.parse.quote(PID))
+          IAP = d['data'][0]['id'] if (s == 200 and d['data']) else None
+          print('app:', APP, '/ iap:', IAP, flush=True)
+
+          NAME = "トレログ 筋トレ×睡眠×食事の記録"
+          SUBTITLE = "3本柱をひとつの画面でまとめて"
+          PRIVACY_URL = "https://kosukekkk-ops.github.io/kintore-app/privacy.html"
+          SUPPORT_URL = "https://github.com/kosukekkk-ops/kintore-app"
+          MARKETING_URL = "https://kosukekkk-ops.github.io/kintore-app/"
+          PROMO = 'トレーニングだけ記録しても身体は変わらない。筋トレ・睡眠・食事の3本柱を1つの画面でまとめて記録し、崩れている柱をひと目で見つけられます。完全オフライン・広告なし・ログイン不要。'
+          KEYWORDS = "筋トレ,トレーニング,記録,ワークアウト,ジム,ウエイト,睡眠,食事,体重,サプリ,プロテイン,ボディメイク,減量,増量,習慣"
+          DESC = """筋トレの記録に、睡眠・食事・サプリメントまで。身体づくりの3本柱をひとつのアプリでまとめて管理できるトレーニング記録アプリです。
+
+          トレーニングだけを頑張っても、寝ていない・食べていなければ身体は変わりません。
+          「今週は追い込めているのに伸びない」——その原因が睡眠なのか、たんぱく質なのか。3本柱を並べて見えるようにしました。
+
+          ■ こんな方におすすめ
+          ・筋トレを続けているのに伸び悩んでいる方
+          ・トレーニング・食事・睡眠をバラバラのアプリで記録していて面倒な方
+          ・サプリメントの飲み忘れを減らしたい方
+          ・紙のノートやメモアプリから乗り換えたい方
+
+          ■ ワークアウト記録
+          ・88種目を最初から収録。オリジナル種目の追加も自由
+          ・重量×回数をタップで素早く入力。前回の記録がその場に出るので迷わない
+          ・種目ごとに動作イラストと「鍛える筋肉」「フォームのポイント」つき
+          ・有酸素は時間と距離で記録
+          ・ウォームアップのセットは総量から除外
+          ・インターバルタイマー(既定3分)。時間になると音とバイブでお知らせし、止めるまで鳴り続けます
+          ・1RM計算機つき
+
+          ■ 睡眠・食事・体重
+          ・就寝と起床の時刻から睡眠時間を自動計算。睡眠の質も5段階で記録
+          ・朝・昼・夕・間食ごとにカロリーとたんぱく質を記録
+          ・体重の推移をグラフで確認
+          ・「今日は休養日」「食事を記録しない日」もそのまま残せます
+
+          ■ サプリメント管理
+          ・プロテイン、クレアチン、EAAなど定番18種からタップで登録
+          ・朝・トレ前・トレ後・就寝前など、飲むタイミングごとにチェックリスト表示
+          ・「トレーニングした日だけ」の設定にも対応
+          ・飲み忘れは順守率としてグラフに出ます
+
+          ■ 振り返り
+          ・今週どの柱を記録できたかが一覧でわかる記録状況ビュー
+          ・運動・睡眠・たんぱく質の達成度を目標に対する割合で表示
+          ・カレンダーと履歴から過去の記録をいつでも修正できます
+          ・記録し忘れた日も、あとから日付を選んで埋められます
+
+          ■ 使いやすさ
+          ・完全オフライン対応。ジムの地下でも電波を気にせず使えます
+          ・ログイン不要・アカウント登録なし・広告なし
+          ・記録データは端末内にのみ保存され、外部に送信されません
+          ・ダークテーマ。アクセントカラーはライム/オレンジから選べます
+          ・日本語 / English 対応
+
+          ■ 料金
+          記録機能はすべて無料・無制限でお使いいただけます。
+          プレミアム(買い切り・サブスクではありません)で以下が解放されます。
+          ・種目別の推移グラフ、自己ベスト、部位別のボリューム配分
+          ・3本柱の14日推移グラフ
+          ・メニューの保存が無制限に(無料版は3件まで)
+          ・サプリメントの登録が無制限に(無料版は3件まで)
+          ・バックアップの書き出し(JSON)
+
+          ■ ご注意
+          本アプリは医療機器ではなく、医学的な診断・助言を行うものではありません。表示される数値は入力値にもとづく目安です。体調やけがに関する判断は必ず医師にご相談ください。トレーニングはご自身の責任と判断において安全に行ってください。"""
+          DESC = '\n'.join(l.strip() for l in DESC.split('\n'))
+          REVIEW_NOTES = """ログイン不要で、記録機能はすべて無料でお試しいただけます。
+          App内課金「プレミアム(全機能解放)」(非消耗型・¥720)の購入画面は、次のいずれからも開けます。
+          1) 「グラフ」タブ →「種目別」を選択 → 表示されるカードをタップ
+          2) 「設定」画面(記録タブ右上の歯車) →「プレミアム」→「詳しく見る」
+          購入すると、種目別の詳細分析・3本柱の14日推移・メニュー/サプリの無制限登録・バックアップの書き出しが解放されます。
+          「購入を復元」は購入画面と設定画面の両方に設置しています。
+          本アプリはユーザーデータを一切収集しません(記録はすべて端末内にのみ保存)。HealthKitとの連携もありません。"""
+          REVIEW_NOTES = '\n'.join(l.strip() for l in REVIEW_NOTES.split('\n'))
+          IAP_NOTE = "非消耗型(¥720)。「グラフ」タブ→「種目別」、または設定画面の「プレミアム」から購入画面を表示できます。購入で種目別分析・3本柱の14日推移・メニュー/サプリの無制限登録・バックアップ書き出しが解放されます。復元ボタンあり。"
+
+          # 1) アプリ名・サブタイトル・プライバシーポリシーURL (appInfoLocalizations ja)
+          s, d = api('GET', f'/v1/apps/{APP}/appInfos?include=appInfoLocalizations&limit=2')
+          assert s == 200, d
+          loc_id = None
+          for inc in d.get('included', []):
+              if inc['type'] == 'appInfoLocalizations' and inc['attributes'].get('locale') == 'ja':
+                  loc_id = inc['id']
+          assert loc_id, 'ja appInfoLocalization not found'
+          s, d = api('PATCH', f'/v1/appInfoLocalizations/{loc_id}', {'data': {
+              'type': 'appInfoLocalizations', 'id': loc_id,
+              'attributes': {'name': NAME, 'subtitle': SUBTITLE, 'privacyPolicyUrl': PRIVACY_URL}}})
+          print('app name/subtitle/privacyUrl:', s, json.dumps(d)[:200], flush=True)
+
+          # 2) バージョンのローカライズ(説明・キーワード等)
+          s, d = api('GET', f'/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=1')
+          assert s == 200 and d['data'], d
+          vid = d['data'][0]['id']
+          print('version:', vid, d['data'][0]['attributes'].get('versionString'),
+                d['data'][0]['attributes'].get('appStoreState'), flush=True)
+          s, d = api('GET', f'/v1/appStoreVersions/{vid}/appStoreVersionLocalizations')
+          assert s == 200, d
+          vloc = next((l['id'] for l in d['data'] if l['attributes'].get('locale') == 'ja'), None)
+          assert vloc, 'ja version localization not found'
+          s, d = api('PATCH', f'/v1/appStoreVersionLocalizations/{vloc}', {'data': {
+              'type': 'appStoreVersionLocalizations', 'id': vloc,
+              'attributes': {'description': DESC, 'keywords': KEYWORDS, 'promotionalText': PROMO,
+                             'supportUrl': SUPPORT_URL, 'marketingUrl': MARKETING_URL}}})
+          print('version localization:', s, json.dumps(d)[:200], flush=True)
+
+          # 3) 審査連絡先(App Review情報)
+          s, d = api('GET', f'/v1/appStoreVersions/{vid}/appStoreReviewDetail')
+          detail_id = d.get('data', {}).get('id') if s == 200 and d.get('data') else None
+          attrs = {'contactFirstName': '康介', 'contactLastName': '菊池',
+                   'contactPhone': '+818077174466', 'contactEmail': 'kosuke.kkk@icloud.com',
+                   'demoAccountRequired': False, 'notes': REVIEW_NOTES}
+          if detail_id:
+              s, d = api('PATCH', f'/v1/appStoreReviewDetails/{detail_id}',
+                         {'data': {'type': 'appStoreReviewDetails', 'id': detail_id, 'attributes': attrs}})
+          else:
+              s, d = api('POST', '/v1/appStoreReviewDetails',
+                         {'data': {'type': 'appStoreReviewDetails', 'attributes': attrs,
+                                   'relationships': {'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
+          print('review details:', s, json.dumps(d)[:200], flush=True)
+
+          # 4) IAP: 審査メモ + 審査用スクリーンショット
+          if IAP:
+              s, d = api('PATCH', f'/v2/inAppPurchases/{IAP}', {'data': {
+                  'type': 'inAppPurchases', 'id': IAP, 'attributes': {'reviewNote': IAP_NOTE}}})
+              print('iap review note:', s, flush=True)
+              s, d = api('GET', f'/v2/inAppPurchases/{IAP}/appStoreReviewScreenshot')
+              if not (s == 200 and d.get('data')):
+                  img = open('store/iap-review-screenshot.png', 'rb').read()
+                  md5 = hashlib.md5(img).hexdigest()
+                  s, d = api('POST', '/v1/inAppPurchaseAppStoreReviewScreenshots', {'data': {
+                      'type': 'inAppPurchaseAppStoreReviewScreenshots',
+                      'attributes': {'fileName': 'iap-review-screenshot.png', 'fileSize': len(img)},
+                      'relationships': {'inAppPurchaseV2': {'data': {'type': 'inAppPurchases', 'id': IAP}}}}})
+                  assert s == 201, d
+                  shot = d['data']
+                  for op in shot['attributes']['uploadOperations']:
+                      hdrs = {h['name']: h['value'] for h in op.get('requestHeaders', [])}
+                      req = urllib.request.Request(op['url'], method=op['method'],
+                                                   data=img[op['offset']:op['offset']+op['length']], headers=hdrs)
+                      with urllib.request.urlopen(req) as r:
+                          print('upload chunk:', r.status, flush=True)
+                  s, d = api('PATCH', f"/v1/inAppPurchaseAppStoreReviewScreenshots/{shot['id']}",
+                             {'data': {'type': 'inAppPurchaseAppStoreReviewScreenshots', 'id': shot['id'],
+                                       'attributes': {'uploaded': True, 'sourceFileChecksum': md5}}})
+                  print('iap screenshot committed:', s, flush=True)
+              else:
+                  print('iap screenshot already exists', flush=True)
+          else:
+              print('!! IAPが未作成です。先に iap-setup を実行してください', flush=True)
+
+          # 5) 年齢制限(全項目「なし」=4+)。API仕様変更で失敗しても続行(その場合はWebで2分)
+          s, d = api('GET', f'/v1/apps/{APP}/appInfos?limit=2')
+          info_id = d['data'][0]['id']
+          s, d = api('GET', f'/v1/appInfos/{info_id}/ageRatingDeclaration')
+          if s == 200 and d.get('data'):
+              ar_id = d['data']['id']
+              NONE_FIELDS = ['alcoholTobaccoOrDrugUseOrReferences', 'contests', 'gamblingSimulated',
+                             'horrorOrFearThemes', 'matureOrSuggestiveThemes', 'medicalOrTreatmentInformation',
+                             'profanityOrCrudeHumor', 'sexualContentGraphicAndNudity', 'sexualContentOrNudity',
+                             'violenceCartoonOrFantasy', 'violenceRealistic',
+                             'violenceRealisticProlongedGraphicOrSadistic']
+              ar_attrs = {f: 'NONE' for f in NONE_FIELDS}
+              ar_attrs.update({'gambling': False, 'unrestrictedWebAccess': False, 'lootBox': False})
+              s, d = api('PATCH', f'/v1/ageRatingDeclarations/{ar_id}',
+                         {'data': {'type': 'ageRatingDeclarations', 'id': ar_id, 'attributes': ar_attrs}})
+              print('age rating:', s, json.dumps(d)[:300], flush=True)
+
+          # 6) 著作権表記
+          s, d = api('PATCH', f'/v1/appStoreVersions/{vid}', {'data': {
+              'type': 'appStoreVersions', 'id': vid,
+              'attributes': {'copyright': '© 2026 Kosuke Kikuchi'}}})
+          print('copyright:', s, flush=True)
+
+          # 7) コンテンツ配信権: 素材・文章とも自作のみ
+          s, d = api('PATCH', f'/v1/apps/{APP}', {'data': {
+              'type': 'apps', 'id': APP,
+              'attributes': {'contentRightsDeclaration': 'DOES_NOT_USE_THIRD_PARTY_CONTENT'}}})
+          print('content rights:', s, json.dumps(d)[:150], flush=True)
+
+          # 8) アプリ価格=無料(日本基準・価格ポイント0円)
+          pts, cursor = [], f'/v1/apps/{APP}/appPricePoints?filter[territory]=JPN&limit=200'
+          while cursor:
+              s, d = api('GET', cursor)
+              assert s == 200, d
+              pts += d['data']
+              nxt = (d.get('links') or {}).get('next')
+              cursor = nxt.replace('https://api.appstoreconnect.apple.com', '') if nxt else None
+          free = next((p for p in pts if p['attributes'].get('customerPrice') in ('0.0', '0', '0.00')), None)
+          assert free, f'free price point not found in {len(pts)}'
+          s, d = api('POST', '/v1/appPriceSchedules', {
+              'data': {'type': 'appPriceSchedules',
+                       'relationships': {
+                           'app': {'data': {'type': 'apps', 'id': APP}},
+                           'baseTerritory': {'data': {'type': 'territories', 'id': 'JPN'}},
+                           'manualPrices': {'data': [{'type': 'appPrices', 'id': '${p1}'}]}}},
+              'included': [{'type': 'appPrices', 'id': '${p1}',
+                            'attributes': {'startDate': None},
+                            'relationships': {
+                                'appPricePoint': {'data': {'type': 'appPricePoints', 'id': free['id']}}}}]})
+          print('app price schedule(free):', s, json.dumps(d)[:200], flush=True)
+          print('=== DONE ===')
+          PY
+
+  # ================= 4. スクリーンショットのアップロード =================
+  screenshots-upload:
+    name: Upload App Store screenshots (ja)
+    instance_type: mac_mini_m2
+    max_build_duration: 20
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+    scripts:
+      - name: Upload store/screenshots/*.png to the current version (ja)
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, glob, hashlib, subprocess, urllib.request, urllib.error, urllib.parse
+
+          VENV_PY = os.environ['VENV_PY']
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+          def api(method, path, body=None):
+              req = urllib.request.Request('https://api.appstoreconnect.apple.com' + path, method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      d = r.read()
+                      return r.status, json.loads(d) if d else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('GET', '/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          assert s == 200 and d['data'], d
+          APP = d['data'][0]['id']
+
+          # 編集中のバージョン(未提出のもの)を対象にする
+          s, d = api('GET', f'/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=1')
+          assert s == 200 and d['data'], d
+          vid = d['data'][0]['id']
+          print('version:', d['data'][0]['attributes'].get('versionString'),
+                d['data'][0]['attributes'].get('appStoreState'), flush=True)
+
+          s, d = api('GET', f'/v1/appStoreVersions/{vid}/appStoreVersionLocalizations')
+          vloc = next(l['id'] for l in d['data'] if l['attributes'].get('locale') == 'ja')
+
+          s, d = api('GET', f'/v1/appStoreVersionLocalizations/{vloc}/appScreenshotSets')
+          sets = {x['attributes']['screenshotDisplayType']: x['id'] for x in d.get('data', [])}
+          set_id = None
+          for disp in ('APP_IPHONE_69', 'APP_IPHONE_67'):
+              if disp in sets:
+                  set_id = sets[disp]; print('screenshot set exists:', disp, set_id, flush=True); break
+              s, d = api('POST', '/v1/appScreenshotSets', {'data': {
+                  'type': 'appScreenshotSets',
+                  'attributes': {'screenshotDisplayType': disp},
+                  'relationships': {'appStoreVersionLocalization': {'data': {'type': 'appStoreVersionLocalizations', 'id': vloc}}}}})
+              if s == 201:
+                  set_id = d['data']['id']; print('screenshot set created:', disp, set_id, flush=True); break
+              print('set create failed for', disp, s, json.dumps(d)[:200], flush=True)
+          assert set_id, 'no screenshot set'
+
+          # 既存分を消してから入れ直す(再実行しても重複しない)
+          s, d = api('GET', f'/v1/appScreenshotSets/{set_id}/appScreenshots')
+          for old in d.get('data', []):
+              api('DELETE', f"/v1/appScreenshots/{old['id']}")
+              print('deleted old screenshot:', old['id'], flush=True)
+
+          files = sorted(glob.glob('store/screenshots/*.png'))
+          assert files, 'store/screenshots/*.png が空です'
+          for f in files:
+              img = open(f, 'rb').read()
+              md5 = hashlib.md5(img).hexdigest()
+              s, d = api('POST', '/v1/appScreenshots', {'data': {
+                  'type': 'appScreenshots',
+                  'attributes': {'fileName': os.path.basename(f), 'fileSize': len(img)},
+                  'relationships': {'appScreenshotSet': {'data': {'type': 'appScreenshotSets', 'id': set_id}}}}})
+              assert s == 201, (f, d)
+              shot = d['data']
+              for op in shot['attributes']['uploadOperations']:
+                  hdrs = {h['name']: h['value'] for h in op.get('requestHeaders', [])}
+                  req = urllib.request.Request(op['url'], method=op['method'],
+                                               data=img[op['offset']:op['offset'] + op['length']], headers=hdrs)
+                  with urllib.request.urlopen(req):
+                      pass
+              s, d = api('PATCH', f"/v1/appScreenshots/{shot['id']}",
+                         {'data': {'type': 'appScreenshots', 'id': shot['id'],
+                                   'attributes': {'uploaded': True, 'sourceFileChecksum': md5}}})
+              print('uploaded:', os.path.basename(f), s, flush=True)
+          print('=== DONE ===')
+          PY
+
+  # ================= 5. 審査提出 =================
+  # NEW_VERSION が既存ならそれを使い、無ければ作る。1.0(初回)にも次バージョンにも使える。
+  # 初回は「バージョン＋IAP」を1つの提出物にまとめる。IAPを含め忘れると
+  # ガイドライン2.1(b)で差し戻されるため、常にIAPも入れる。
+  release-submit:
+    name: Submit for review (attach build + version + IAP)
+    instance_type: mac_mini_m2
+    max_build_duration: 40
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+        NEW_VERSION: "1.0"
+        WHATS_NEW: ""       # 1.0では未使用。次バージョン以降に更新内容を書く
+    scripts:
+      - name: Create/reuse version, attach latest build, submit with IAP
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, time, subprocess, urllib.request, urllib.error, urllib.parse
+
+          VER = os.environ['NEW_VERSION'].strip()
+          WHATS_NEW = os.environ.get('WHATS_NEW', '').strip()
+          VENV_PY = os.environ['VENV_PY']
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+          def api(method, path, body=None):
+              req = urllib.request.Request('https://api.appstoreconnect.apple.com' + path, method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      d = r.read()
+                      return r.status, json.loads(d) if d else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('GET', '/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          assert s == 200 and d['data'], d
+          APP = d['data'][0]['id']
+          PID = os.environ['PRODUCT_ID'].strip()
+          s, d = api('GET', f'/v1/apps/{APP}/inAppPurchasesV2?filter[productId]=' + urllib.parse.quote(PID))
+          IAP = d['data'][0]['id'] if (s == 200 and d['data']) else None
+          print('app:', APP, '/ iap:', IAP, flush=True)
+
+          # 1) バージョンを作成(既存なら再利用)
+          s, d = api('GET', f'/v1/apps/{APP}/appStoreVersions?filter[versionString]={VER}&filter[platform]=IOS')
+          if s == 200 and d.get('data'):
+              vid = d['data'][0]['id']
+              print('version exists:', vid, d['data'][0]['attributes'].get('appStoreState'), flush=True)
+          else:
+              s, d = api('POST', '/v1/appStoreVersions', {'data': {
+                  'type': 'appStoreVersions',
+                  'attributes': {'platform': 'IOS', 'versionString': VER, 'releaseType': 'AFTER_APPROVAL'},
+                  'relationships': {'app': {'data': {'type': 'apps', 'id': APP}}}}})
+              print('create version:', s, json.dumps(d)[:200], flush=True)
+              assert s == 201, d
+              vid = d['data']['id']
+
+          # 2) 「このバージョンの新機能」(2回目以降のみ)
+          if WHATS_NEW:
+              s, d = api('GET', f'/v1/appStoreVersions/{vid}/appStoreVersionLocalizations')
+              vloc = next(l['id'] for l in d['data'] if l['attributes'].get('locale') == 'ja')
+              s, d = api('PATCH', f'/v1/appStoreVersionLocalizations/{vloc}', {'data': {
+                  'type': 'appStoreVersionLocalizations', 'id': vloc,
+                  'attributes': {'whatsNew': WHATS_NEW}}})
+              print('whatsNew:', s, flush=True)
+
+          # 3) 最新ビルドの処理完了を待って紐付け
+          build = None
+          for _ in range(50):
+              s, d = api('GET', f'/v1/builds?filter[app]={APP}&sort=-uploadedDate&limit=1')
+              if s == 200 and d.get('data'):
+                  b = d['data'][0]
+                  st = b['attributes']['processingState']
+                  print('build', b['attributes']['version'], 'state:', st, flush=True)
+                  if st == 'VALID':
+                      build = b; break
+                  if st in ('FAILED', 'INVALID'):
+                      raise SystemExit('build processing ' + st)
+              else:
+                  print('waiting for a build to appear...', flush=True)
+              time.sleep(30)
+          assert build, 'processed build not found'
+          s, d = api('PATCH', f'/v1/appStoreVersions/{vid}/relationships/build',
+                     {'data': {'type': 'builds', 'id': build['id']}})
+          print('attach build:', s, flush=True)
+
+          # 4) 審査提出(既存の未提出があれば再利用)
+          s, d = api('GET', f'/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&limit=10')
+          sub = None
+          for x in d.get('data', []):
+              st = x['attributes'].get('state')
+              print('existing submission:', x['id'], st, flush=True)
+              if st in ('UNRESOLVED_ISSUES', 'READY_FOR_REVIEW'):
+                  sub = x
+          if not sub:
+              s, d = api('POST', '/v1/reviewSubmissions', {'data': {
+                  'type': 'reviewSubmissions', 'attributes': {'platform': 'IOS'},
+                  'relationships': {'app': {'data': {'type': 'apps', 'id': APP}}}}})
+              print('create submission:', s, json.dumps(d)[:200], flush=True)
+              assert s == 201, d
+              sub = d['data']
+          sid = sub['id']
+
+          # 5) 提出物にバージョンとIAPを追加(既に入っていればエラーは無視)
+          s, d = api('POST', '/v1/reviewSubmissionItems', {'data': {
+              'type': 'reviewSubmissionItems',
+              'relationships': {
+                  'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sid}},
+                  'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
+          print('add version item:', s, json.dumps(d)[:200], flush=True)
+          if IAP:
+              s, d = api('POST', '/v1/reviewSubmissionItems', {'data': {
+                  'type': 'reviewSubmissionItems',
+                  'relationships': {
+                      'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sid}},
+                      'inAppPurchaseV2': {'data': {'type': 'inAppPurchases', 'id': IAP}}}}})
+              print('add IAP item:', s, json.dumps(d)[:300], flush=True)
+
+          s, d = api('GET', f'/v1/reviewSubmissions/{sid}/items')
+          print('items:', json.dumps(d.get('data', []))[:400], flush=True)
+          s, d = api('PATCH', f'/v1/reviewSubmissions/{sid}', {'data': {
+              'type': 'reviewSubmissions', 'id': sid, 'attributes': {'submitted': True}}})
+          print('SUBMIT:', s, json.dumps(d)[:300], flush=True)
+          print('=== DONE ===')
+          PY
+
+  # ================= 状態確認(読み取り専用) =================
+  status-check:
+    name: Status check (read-only)
+    instance_type: mac_mini_m2
+    max_build_duration: 10
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+    scripts:
+      - name: Print version, IAP and submission states
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, subprocess, urllib.request, urllib.error, urllib.parse
+          VENV_PY = os.environ['VENV_PY']
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+          def api(path):
+              req = urllib.request.Request('https://api.appstoreconnect.apple.com' + path,
+                  headers={'Authorization': 'Bearer ' + token()})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return r.status, json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          if not (s == 200 and d.get('data')):
+              print('APP not found for bundleId', bid, '->', s, json.dumps(d)[:200]); raise SystemExit(0)
+          APP = d['data'][0]['id']
+          print('APP', APP, d['data'][0]['attributes'].get('name'), flush=True)
+
+          s, d = api(f'/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=3')
+          for v in d.get('data', []):
+              a = v['attributes']
+              print('VERSION', a.get('versionString'), '->', a.get('appStoreState'), '/', a.get('appVersionState'), flush=True)
+
+          PID = os.environ['PRODUCT_ID'].strip()
+          s, d = api(f'/v1/apps/{APP}/inAppPurchasesV2?filter[productId]=' + urllib.parse.quote(PID))
+          if d.get('data'):
+              print('IAP', d['data'][0]['id'], '->', d['data'][0]['attributes'].get('state'), flush=True)
+          else:
+              print('IAP not created yet (run iap-setup)', flush=True)
+
+          s, d = api(f'/v1/reviewSubmissions?filter[app]={APP}&filter[platform]=IOS&limit=3')
+          for x in d.get('data', []):
+              print('SUBMISSION', x['id'][:8], '->', x['attributes'].get('state'), flush=True)
+
+          s, d = api(f'/v1/apps/{APP}/appAvailabilityV2?include=territoryAvailabilities&limit[territoryAvailabilities]=50')
+          if s == 200:
+              attrs = d.get('data', {}).get('attributes', {})
+              print('AVAILABILITY availableInNewTerritories:', attrs.get('availableInNewTerritories'), flush=True)
+              terrs = [i for i in d.get('included', []) if i['type'] == 'territoryAvailabilities']
+              avail = [t for t in terrs if t['attributes'].get('available')]
+              print('AVAILABILITY territories(available/checked):', len(avail), '/', len(terrs), flush=True)
+          else:
+              print('AVAILABILITY check failed:', s, json.dumps(d)[:200], flush=True)
+          PY
+
+  # ================= 修復: 配信地域を全世界に =================
+  # 未設定だと審査に通ってもどのストアにも載らない。FE対策アプリで踏んだ罠。
+  fix-availability:
+    name: Fix app availability (all territories)
+    instance_type: mac_mini_m2
+    max_build_duration: 10
+    environment:
+      groups:
+        - appstore
+      vars:
+        BUNDLE_ID: "io.github.kosukekkkops.torelog"
+        PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
+    scripts:
+      - name: Set app availability to all territories
+        script: |
+          CLI=$(which app-store-connect)
+          VENV_PY=$(sed -n '1s/^#!//p' "$CLI")
+          export VENV_PY
+          python3 <<'PY'
+          import os, json, subprocess, urllib.request, urllib.error, urllib.parse
+          VENV_PY = os.environ['VENV_PY']
+          MINT = (
+              "import os\n"
+              "from codemagic.apple.app_store_connect import AppStoreConnectApiClient, IssuerId, KeyIdentifier\n"
+              "c = AppStoreConnectApiClient(\n"
+              "    KeyIdentifier(os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()),\n"
+              "    IssuerId(os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()),\n"
+              "    os.environ['APP_STORE_CONNECT_PRIVATE_KEY'].strip())\n"
+              "print(c.jwt)\n"
+          )
+          def token():
+              return subprocess.check_output([VENV_PY, '-c', MINT], text=True).strip()
+          def api(method, path, body=None):
+              req = urllib.request.Request('https://api.appstoreconnect.apple.com' + path, method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      d = r.read()
+                      return r.status, json.loads(d) if d else {}
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read() or b'{}')
+
+          bid = os.environ['BUNDLE_ID'].strip()
+          s, d = api('GET', '/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          assert s == 200 and d['data'], d
+          APP = d['data'][0]['id']
+
+          s, d = api('GET', '/v1/territories?limit=200')
+          assert s == 200, d
+          terrs = [t['id'] for t in d['data']]
+          print('territories:', len(terrs), flush=True)
+
+          refs, included = [], []
+          for i, t in enumerate(terrs):
+              tid = '${t' + str(i) + '}'
+              refs.append({'type': 'territoryAvailabilities', 'id': tid})
+              included.append({'type': 'territoryAvailabilities', 'id': tid,
+                               'attributes': {'available': True},
+                               'relationships': {'territory': {'data': {'type': 'territories', 'id': t}}}})
+          s, d = api('POST', '/v2/appAvailabilities', {
+              'data': {'type': 'appAvailabilities',
+                       'attributes': {'availableInNewTerritories': True},
+                       'relationships': {
+                           'app': {'data': {'type': 'apps', 'id': APP}},
+                           'territoryAvailabilities': {'data': refs}}},
+              'included': included})
+          print('create availability:', s, json.dumps(d)[:400], flush=True)
+
+          s, d = api('GET', f'/v1/apps/{APP}/appAvailabilityV2?include=territoryAvailabilities&limit[territoryAvailabilities]=50')
+          if s == 200:
+              terrs2 = [i for i in d.get('included', []) if i['type'] == 'territoryAvailabilities']
+              avail = [t for t in terrs2 if t['attributes'].get('available')]
+              print('now available in (sample):', len(avail), '/', len(terrs2), flush=True)
+          print('=== DONE ===')
+          PY

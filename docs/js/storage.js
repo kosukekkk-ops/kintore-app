@@ -48,6 +48,12 @@ const Store = (() => {
     getAccent() { const a = read('accent', 'lime'); return a === 'orange' ? 'orange' : 'lime'; },
     setAccent(a) { write('accent', a === 'orange' ? 'orange' : 'lime'); },
 
+    /* ---------- premium(買い切りIAP) ----------
+     * 真実はStoreKit側。ここは描画を待たせないためのキャッシュで、
+     * ネイティブ起動時に Premium.sync() が必ず照合し直す。 */
+    getPremium() { return read('premium', false); },
+    setPremium(v) { write('premium', !!v); },
+
     /* ---------- exercises ---------- */
     getExercises() { return read('exercises', []); },
     setExercises(list) { write('exercises', list); },

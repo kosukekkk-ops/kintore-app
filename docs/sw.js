@@ -3,12 +3,14 @@
  * すべて使えるようにする(データは端末内 localStorage 保存のためそもそも通信不要)。
  * ファイルを追加/削除/リネームしたら必ず ASSETS 一覧と CACHE 版数を更新すること。
  */
-const CACHE = 'kintore-app-v57';
+const CACHE = 'kintore-app-v58';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/storage.js',
+  './js/premium.js',
+  './js/legal.js',
   './js/data.js',
   './js/charts.js',
   './js/app.js',

@@ -1,13 +1,13 @@
 {
-  "name": "筋トレ記録 — トレーニング・食事・睡眠",
-  "short_name": "筋トレ記録",
+  "name": "トレログ — 筋トレ×睡眠×食事の記録",
+  "short_name": "トレログ",
   "description": "筋トレのセット記録と成長の可視化に加え、食事・睡眠・体重も一括で記録できるトレーニング記録アプリ",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#070a11",
-  "theme_color": "#070a11",
+  "background_color": "#0c0e0d",
+  "theme_color": "#0c0e0d",
   "lang": "ja",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },

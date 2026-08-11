@@ -1,0 +1,30 @@
+/* legal.css — 利用規約・プライバシーポリシーの公開ページ用スタイル。
+ * アプリ本体はダーク固定だが、公開ページは審査担当者や検索から素で開かれるため、
+ * 端末のシステム設定に追随させて読みやすさを優先する。 */
+:root {
+  --bg: #0c0e0d; --bg-elev: #20241f; --border: #2a301f;
+  --text: #e8ede8; --text-dim: #8f958f; --accent: #c6ff3a;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6f1; --bg-elev: #ffffff; --border: #dfe4d6;
+    --text: #1a1d18; --text-dim: #5d6358; --accent: #4d7a05;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  line-height: 1.8; -webkit-font-smoothing: antialiased;
+}
+main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 28px 0 8px; color: var(--accent); }
+p, li { font-size: 14px; }
+p.date { color: var(--text-dim); font-size: 12px; margin: 0 0 24px; }
+ol { padding-left: 1.4em; }
+li { margin: 6px 0; }
+strong { color: var(--text); }
+.mono { font-family: Consolas, monospace; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+.navback { display: inline-block; margin-bottom: 18px; font-size: 13px; color: var(--text-dim); text-decoration: none; }
+.navback:hover { color: var(--accent); }

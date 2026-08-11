@@ -1,0 +1,14 @@
+{
+  "appId": "io.github.kosukekkkops.torelog",
+  "appName": "トレログ",
+  "webDir": "docs",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#070a11",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    }
+  }
+}

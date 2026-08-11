@@ -166,6 +166,7 @@ nav.tabbar button.active svg { transform: scale(1.06); }
 .pillar .pi-l { font: 600 10px var(--font-num); letter-spacing: .08em; color: var(--text-dim); margin-bottom: 3px; }
 .pillar .pi-v { font: 700 15px var(--font-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pillar .pi-v.dim { color: var(--text-mute); font-weight: 600; font-size: 13px; }
+.pillar .pi-s { font: 600 11px var(--font-num); color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; }
 .pillar .stars { color: var(--warn); font-size: 11px; letter-spacing: 1px; }
 .menu-list { display: flex; flex-direction: column; gap: 8px; }
 .menu-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 13px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform .1s; }
@@ -628,3 +629,43 @@ a.linkbtn:active { transform: scale(.98); }
 .info-head .back-btn { font-weight: 600; }
 ul.tips { margin: 0 0 14px; padding-left: 20px; }
 ul.tips li { font-size: 14px; margin-bottom: 5px; line-height: 1.55; }
+
+/* ---------- プレミアム(買い切りIAP) ---------- */
+/* 無料枠の残量。「あと何件か」を数字で見せて、上限に当たってから驚くのを防ぐ */
+.quota {
+  font-size: 11px; font-weight: 600; flex: none; padding: 3px 9px; border-radius: 999px;
+  background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border);
+}
+/* 機能をロックしている箇所に置く案内。壁ではなく「この先に何があるか」の予告として見せる */
+.lock-card { cursor: pointer; border-color: var(--accent-2); }
+.lock-card:active { transform: scale(.99); }
+.lock-badge {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 9px; border-radius: 999px; background: var(--accent); color: var(--on-accent);
+}
+.lock-msg { font-size: 14px; line-height: 1.6; margin: 10px 0 6px; }
+.lock-cta { font-size: 13px; font-weight: 700; color: var(--accent); }
+.tag-pw {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; margin-left: 6px;
+  background: var(--accent); color: var(--on-accent);
+}
+/* ペイウォール本体 */
+.pw-reason {
+  font-size: 13px; line-height: 1.6; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px;
+  background: var(--bg-hi); border: 1px solid var(--accent-2); color: var(--text);
+}
+.pw-list { margin: 12px 0 14px; }
+.pw-item { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 11px; }
+.pw-item .ic { color: var(--accent); flex: none; margin-top: 2px; }
+.pw-item b { display: block; font-size: 14px; margin-bottom: 3px; }
+.pw-item span { display: block; font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+
+/* 規約・プライバシーのアプリ内ビューア(本文は legal.js が単一ソース) */
+.legal-body h1 { font-size: 19px; margin: 4px 0 2px; }
+.legal-body h2 { font-size: 14px; margin: 20px 0 6px; color: var(--accent); }
+.legal-body p, .legal-body li { font-size: 13px; line-height: 1.75; color: var(--text-dim); }
+.legal-body p.date { font-size: 11px; margin: 0 0 16px; }
+.legal-body strong { color: var(--text); }
+.legal-body ol { padding-left: 1.3em; margin: 6px 0; }
+.legal-body li { margin: 5px 0; }
+.legal-body .mono { font-family: var(--font-mono); font-size: 12px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }

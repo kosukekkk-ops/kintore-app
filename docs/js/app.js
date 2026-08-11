@@ -215,27 +215,34 @@
 
     // 今日の3本柱: 運動(上のリング)に加えて睡眠・食事を同じ画面に置く。
     // 未記録ならタップで体調タブの今日の入力へ直行(一元管理の入口)。
+    // カード幅は画面の1/3しかないため、値を1行に詰め込むと必ず「…」で切れる。
+    // 主要値は1行目、補足(睡眠の質・たんぱく質)は2行目に分けて、どちらも省略させない。
     const todayLog = Store.getLog(todayK) || {};
-    const sleepV = todayLog.sleepHours
-      ? `${fmtHM(todayLog.sleepHours)}${todayLog.sleepQuality ? ` <span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : ''}`
-      : '';
-    const foodParts = [];
-    if (todayLog.noFood) foodParts.push(t('no_food_short'));
+    const sleepV = todayLog.sleepHours ? fmtHM(todayLog.sleepHours) : '';
+    const sleepSub = (todayLog.sleepHours && todayLog.sleepQuality)
+      ? `<span class="stars">${'★'.repeat(todayLog.sleepQuality)}</span>` : '';
+    let foodV = '', foodSub = '';
+    if (todayLog.noFood) foodV = t('no_food_short');
     else {
-      if (todayLog.calories) foodParts.push(todayLog.calories + 'kcal');
-      if (todayLog.protein) foodParts.push('P' + todayLog.protein + 'g');
+      if (todayLog.calories) foodV = todayLog.calories + 'kcal';
+      if (todayLog.protein) {
+        if (foodV) foodSub = 'P' + todayLog.protein + 'g';
+        else foodV = 'P' + todayLog.protein + 'g';
+      }
     }
     // サプリは3枚目のカードとして独立(入口が食事カード内の文字列だけだと見つけにくい)
     const sp = suppProgress(todayK);
     const hasStack = Store.getSupps().length > 0;
     const suppVal = hasStack ? (sp.m ? `${sp.n}/${sp.m}` : '—') : '';
+    // 3枚とも高さを揃えるため、補足が無いカードにも空の2行目を置く
+    const sub = (html) => `<div class="pi-s">${html || '&nbsp;'}</div>`;
     h += `<div class="pillars">
       <div class="pillar" data-act="go-cond-sleep"><div class="pi-l">${ic('moon', 12)} ${t('p_sleep')}</div>
-        <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div></div>
+        <div class="pi-v ${sleepV ? '' : 'dim'}">${sleepV || t('p_log')}</div>${sub(sleepSub)}</div>
       <div class="pillar" data-act="go-cond-food"><div class="pi-l">${ic('food', 12)} ${t('p_food')}</div>
-        <div class="pi-v ${foodParts.length ? '' : 'dim'}">${foodParts.join(' · ') || t('p_log')}</div></div>
+        <div class="pi-v ${foodV ? '' : 'dim'}">${foodV || t('p_log')}</div>${sub(foodSub)}</div>
       <div class="pillar" data-act="go-supps"><div class="pi-l">${ic('pill', 12)} ${t('lbl_supp')}</div>
-        <div class="pi-v ${suppVal ? '' : 'dim'} ${sp.m && sp.n === sp.m ? 'ok' : ''}">${suppVal || t('p_log')}</div></div>
+        <div class="pi-v ${suppVal ? '' : 'dim'} ${sp.m && sp.n === sp.m ? 'ok' : ''}">${suppVal || t('p_log')}</div>${sub('')}</div>
     </div>`;
 
     // 休養日は「サボり」ではなく達成として見せる(記録なしと区別する)
@@ -1315,6 +1322,7 @@
       <button class="${state.graph.view === 'exercise' ? 'active' : ''}" data-act="graph-view" data-v="exercise">${t('g_by_exercise')}</button>
     </div>`;
     if (state.graph.view === 'balance') return h + renderBalance(sessions);
+    if (!Premium.unlocked()) return h + lockCard('pw_g_exercise');
     if (!sessions.length) { h += `<div class="empty">${ic('chart')}${t('graph_empty')}</div>`; return h; }
 
     const usedIds = new Set();
@@ -1454,6 +1462,7 @@
       <p class="muted small" style="margin:6px 0 0">${t('bal_goalnote', { v: Data.fmtNum(Data.kgToDisplay(goalV, unit())), u: uLab(), s: Data.fmtNum(goalS), p: goalP })}</p></div>`;
 
     // 3) 直近14日の推移(運動は0=休みも意味があるので全日、睡眠/食事は記録日のみ)
+    if (!Premium.unlocked()) return h + lockCard('pw_g_trend');
     const two = dayKeys(14);
     const volPts = two.map(k => ({ label: Data.fmtDateShort(k), value: Data.kgToDisplay(volByDate[k] || 0, unit()) }));
     const sleepPts = two.filter(k => logByDate[k] && logByDate[k].sleepHours).map(k => ({ label: Data.fmtDateShort(k), value: logByDate[k].sleepHours }));
@@ -1492,6 +1501,7 @@
     if (state.menu.screen === 'edit') return renderTemplateEdit();
     const templates = Store.getTemplates();
     let h = `<div class="head"><h1>${t('h_menu')}</h1><div class="spacer"></div>
+      ${Premium.unlocked() ? '' : `<span class="quota">${t('pw_free_of', { c: templates.length, n: Premium.limitOf('templates') })}</span>`}
       <button class="icon-btn" data-act="new-template" aria-label="${t('a_new_tpl')}">＋</button></div>`;
     if (!templates.length) {
       h += `<div class="empty">${ic('list')}${t('menu_empty')}</div>`;
@@ -1588,7 +1598,8 @@
   function renderSuppManage() {
     const supps = Store.getSupps();
     let h = `<button class="back-btn" data-act="supps-back">‹ ${t('h_condition')}</button>`;
-    h += `<div class="head"><h1 style="font-size:18px">${t('supp_title')}</h1></div>`;
+    h += `<div class="head"><h1 style="font-size:18px">${t('supp_title')}</h1><div class="spacer"></div>
+      ${Premium.unlocked() ? '' : `<span class="quota">${t('pw_free_of', { c: supps.length, n: Premium.limitOf('supps') })}</span>`}</div>`;
     h += `<div class="card">`;
     if (!supps.length) h += `<p class="muted small">${t('supp_empty')}</p>`;
     else supps.forEach(s => {
@@ -1847,6 +1858,17 @@
     const accent = Store.getAccent();
     let h = `<button class="back-btn" data-act="settings-back">‹ ${t('back')}</button>`;
     h += `<div class="head"><h1>${t('settings')}</h1></div>`;
+    // プレミアム欄はストアのあるネイティブ版のみ(Web版は課金導線を持たない)。
+    // 「購入を復元」はAppleの必須要件なので、購入済みでも押せる場所に残す。
+    if (Premium.isNative()) {
+      h += Premium.unlocked()
+        ? `<div class="card"><h2>${t('s_premium')}</h2>
+             <p class="muted small">${t('pw_active')}</p></div>`
+        : `<div class="card"><h2>${t('s_premium')}</h2>
+             <p class="muted small mb">${t('pw_lead')}</p>
+             <button class="btn mb" data-act="paywall">${t('pw_open')}</button>
+             <button class="btn secondary" data-act="premium-restore">${t('pw_restore')}</button></div>`;
+    }
     h += `<div class="card"><h2>${t('s_unit')}</h2>
       <div class="seg"><button class="${s.unit === 'kg' ? 'active' : ''}" data-act="set-unit" data-v="kg">kg</button>
       <button class="${s.unit === 'lbs' ? 'active' : ''}" data-act="set-unit" data-v="lbs">lbs</button></div></div>`;
@@ -1892,12 +1914,15 @@
       <button class="link-btn dim" data-act="rest-test">${t('rest_test')}</button>
       <p class="muted small mt">${t('rest_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('s_data')}</h2>
-      <button class="btn secondary mb" data-act="export">${t('export_btn')}</button>
+      <button class="btn secondary mb" data-act="export">${t('export_btn')}${Premium.unlocked() ? '' : ` <span class="tag-pw">${t('pw_lock')}</span>`}</button>
       <button class="btn secondary mb" data-act="import">${t('import_btn')}</button>
       <button class="btn danger" data-act="reset">${t('reset_btn')}</button>
       <p class="muted small mt">${t('data_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('contact_title')}</h2>
       <button class="btn secondary" data-act="contact">${t('contact_btn')}</button></div>`;
+    h += `<div class="card"><h2>${t('s_legal')}</h2>
+      <button class="lrow" data-act="legal" data-kind="terms"><div class="lmain"><div class="ltitle">${t('legal_terms')}</div></div><div style="font-size:18px;color:var(--text-dim)">›</div></button>
+      <button class="lrow" data-act="legal" data-kind="privacy"><div class="lmain"><div class="ltitle">${t('legal_privacy')}</div></div><div style="font-size:18px;color:var(--text-dim)">›</div></button></div>`;
     h += `<p class="muted small center">${t('version')}</p>`;
     return h;
   }
@@ -1926,7 +1951,7 @@
       body: JSON.stringify({
         message: msg.trim() + '\n\n---\n' + meta,
         email: mail.trim() || undefined,
-        _subject: '[筋トレ記録] お問い合わせ',
+        _subject: '[トレログ] お問い合わせ',
         _template: 'table',
         _honey: '' // ボット対策のハニーポット
       })
@@ -2034,7 +2059,14 @@
     'graph-metric': (d) => { state.graph.metric = d.m; render(); },
     'graph-view': (d) => { state.graph.view = d.v; render(); },
 
-    'new-template': () => { state.menu.draft = { id: null, name: '', description: '', exercises: [] }; state.menu.screen = 'edit'; render(); },
+    'new-template': () => {
+      if (!gate('templates', Store.getTemplates().length, 'pw_g_tpl')) return;
+      state.menu.draft = { id: null, name: '', description: '', exercises: [] }; state.menu.screen = 'edit'; render();
+    },
+    'paywall': (d) => openPaywall(d.reason ? t(d.reason) : ''),
+    'legal': (d) => showSheet(`${sheetHead('sheet-close', t('close'))}<div class="legal-body">${LEGAL[d.kind]}</div>`),
+    'premium-buy': () => buyPremium(),
+    'premium-restore': () => restorePremium(),
     'edit-template': (d) => { state.menu.draft = JSON.parse(JSON.stringify(Store.getTemplate(d.id))); state.menu.screen = 'edit'; render(); },
     'menu-back': () => leaveTemplateEdit(),
     'tpl-add-ex': () => { pendingTplPick = true; openPicker((exId) => { addTplExercise(exId); closeSheet(); render(); }); },
@@ -2102,7 +2134,7 @@
     // ホームのサプリカードから: 登録済みなら今日のチェックリスト(体調タブ先頭)、未登録なら管理画面へ
     'go-supps': () => { state.cond.screen = Store.getSupps().length ? 'list' : 'supps'; switchTab('condition'); },
     'supps-back': () => { state.cond.screen = 'list'; render(); },
-    'supp-add': () => openSuppSheet(null),
+    'supp-add': () => { if (gate('supps', Store.getSupps().length, 'pw_g_supp')) openSuppSheet(null); },
     'supp-edit': (d) => openSuppSheet(d.id),
     'supp-preset': (d) => {
       const p = Data.SUPP_PRESETS[+d.i]; if (!p) return;
@@ -2147,7 +2179,7 @@
     },
     'contact': () => openContact(),
     'contact-send': () => sendContact(),
-    'export': () => doExport(),
+    'export': () => { if (Premium.unlocked()) doExport(); else openPaywall(t('pw_g_export')); },
     'import': () => doImport(),
     'reset': () => confirmSheet(t('reset_confirm'), () => { Store.resetData(); closeSheet(); toast(t('reset_done')); render(); }),
 
@@ -2337,6 +2369,56 @@
     cur = s; state.wo.screen = 'session'; state.wo.backTo = 'history';
     closeSheet(); switchTab('workout');
   }
+  /* ============ プレミアム(買い切りIAP) ============
+   * ゲートに引っかかった箇所から reason 付きで開く。何のために課金するのかが
+   * 分からないまま価格だけ出す画面にはしない。 */
+  function paywallInner(reason) {
+    const L = Premium.LIMITS;
+    const feat = (title, desc) => `<div class="pw-item">${ic('check', 15)}<div><b>${title}</b><span>${desc}</span></div></div>`;
+    return `${sheetHead('sheet-close', t('close'))}
+      <h2>${t('pw_title')}</h2>
+      ${reason ? `<p class="pw-reason">${esc(reason)}</p>` : `<p class="muted small">${t('pw_lead')}</p>`}
+      <div class="pw-list">
+        ${feat(t('pw_f1'), t('pw_f1d'))}
+        ${feat(t('pw_f2'), t('pw_f2d'))}
+        ${feat(t('pw_f3'), t('pw_f3d', { n: L.templates }))}
+        ${feat(t('pw_f4'), t('pw_f4d', { n: L.supps }))}
+        ${feat(t('pw_f5'), t('pw_f5d'))}
+      </div>
+      <button class="btn mb" id="pw-buy" data-act="premium-buy">${t('pw_buy')}</button>
+      <button class="btn secondary mb" data-act="premium-restore">${t('pw_restore')}</button>
+      <p class="muted small">${t('pw_note')}</p>`;
+  }
+  function openPaywall(reason) {
+    showSheet(paywallInner(reason));
+    // 価格はストア問い合わせなので後追いでボタンに差し込む(取得できなければ文言のまま)
+    Premium.price().then(p => { const b = $('#pw-buy'); if (b && p) b.textContent = `${t('pw_buy')}（${p}）`; });
+  }
+  async function buyPremium() {
+    try { await Premium.buy(); closeSheet(); render(); toast(t('pw_active')); }
+    catch (e) { console.warn('purchase failed', e); toast(t('pw_failed')); }
+  }
+  async function restorePremium() {
+    try {
+      const ok = await Premium.restore();
+      if (ok) { closeSheet(); render(); toast(t('pw_restored')); }
+      else toast(t('pw_no_purchase'));
+    } catch (e) { console.warn('restore failed', e); toast(t('pw_no_purchase')); }
+  }
+  // 無料枠を超える操作の共通ガード。超えていたら理由付きでペイウォールを出してfalseを返す。
+  function gate(kind, count, reasonKey) {
+    if (Premium.canAdd(kind, count)) return true;
+    openPaywall(t(reasonKey, { n: Premium.limitOf(kind) }));
+    return false;
+  }
+  // プレミアム限定ブロックの代わりに出す案内カード
+  function lockCard(reasonKey) {
+    return `<div class="card lock-card" data-act="paywall" data-reason="${reasonKey}">
+      <div class="lock-badge">${t('pw_lock')}</div>
+      <p class="lock-msg">${t(reasonKey)}</p>
+      <span class="lock-cta">${t('pw_open')} ›</span></div>`;
+  }
+
   function confirmSheet(msg, onOk) {
     showSheet(`<h2>${t('confirm')}</h2><p class="mb">${esc(msg)}</p>
       <button class="btn danger mb" data-act="confirm-ok">${t('run')}</button>
@@ -2415,6 +2497,12 @@
     if (!S().rest180Mig) Store.setSettings(S().restDefault === 90 ? { rest180Mig: 1, restDefault: 180 } : { rest180Mig: 1 });
     applyAccent();
     relabelTabs();
+    // 購入状態はStoreKitが真実。起動ごとに照合し、キャッシュとズレていたら描き直す
+    // (機種変更後・払い戻し後・「購入を復元」を別端末でした後に効く)
+    if (Premium.isNative()) {
+      const before = Premium.unlocked();
+      Premium.sync().then(after => { if (after !== before) render(); }).catch(() => {});
+    }
     document.body.addEventListener('click', onClick);
     document.body.addEventListener('input', onInput);
     $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
