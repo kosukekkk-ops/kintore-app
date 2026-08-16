@@ -936,7 +936,8 @@
     const fromPicker = !!(picker.onPick && $('#pick-list'));
     showSheet(`<div class="info-head"><button class="back-btn" data-act="info-close">‹ ${fromPicker ? t('back_to_picker') : t('back')}</button></div>
       <h2>${esc(exName(ex))}</h2>
-      <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(Data.equipName(ex.equip))}</span>` : ''}${muscleTag(ex.muscle)}</div>
+      <div class="row" style="gap:6px;margin-bottom:6px">${ex.equip ? `<span class="etag">${esc(Data.equipName(ex.equip))}</span>` : ''}${muscleTag(ex.muscle)}
+        <div class="spacer"></div><button class="link-btn dim" data-act="ex-edit" data-id="${ex.id}">${t('ex_edit')}</button></div>
       ${fromPicker ? `<button class="btn mb" data-act="info-add" data-id="${ex.id}">${t('info_add_btn')}</button>` : ''}
       <div class="sec-title">${t('pose_label')}</div>
       <div class="posefig"><img class="pose-img" src="exercise-images/${encodeURIComponent(ex.name)}.png" data-pose="${pose}" alt="${esc(exName(ex))}" loading="lazy" onerror="window.__imgfb(this)">
@@ -1019,13 +1020,41 @@
     $('.sheet', ov).innerHTML = `<div class="grab"></div>` + pickerInner();
   }
   function openNewExercise() {
+    // 部位はあえて未選択で開く。既定で「胸」を選んでおくと、部位を触らずに
+    // 保存した種目が黙って胸になり、部位別ボリュームの集計まで狂う。
     showSheet(`${sheetHead('newex-back', t('back'))}<h2>${t('custom_title')}</h2>
       <label class="field"><span class="lab">${t('ex_name')}</span><input data-in="newexname" placeholder="${t('ex_name_ph')}"></label>
       <label class="field"><span class="lab">${t('part')}</span>
-        <div class="chips">${Data.MUSCLES.map((m, i) => `<div class="chip ${i === 0 ? 'active' : ''}" data-act="newex-muscle" data-key="${m.key}">${Data.muscleName(m.key)}</div>`).join('')}</div>
+        <div class="chips">${Data.MUSCLES.map(m => `<div class="chip" data-act="newex-muscle" data-key="${m.key}">${Data.muscleName(m.key)}</div>`).join('')}</div>
+        <p class="muted small" style="margin:6px 2px 0">${t('part_required')}</p>
       </label>
       <button class="btn" data-act="save-newex">${t('add_do')}</button>`);
-    newExMuscle = 'chest';
+    newExMuscle = null;
+  }
+
+  /* ---- 種目の編集(名前・部位) ----
+   * exerciseId は据え置きで属性だけ差し替えるので、過去の記録も正しい部位に直る。
+   * 「作るときに部位を間違えたら直せない」状態を解消するための画面。 */
+  let exEditId = null, exEditMuscle = null;
+  function openExerciseEdit(exId) {
+    const ex = Store.exerciseById(exId); if (!ex) return;
+    exEditId = exId; exEditMuscle = ex.muscle;
+    const used = exerciseUseCount(exId);
+    showSheet(`${sheetHead('exedit-back', t('back'))}<h2>${t('ex_edit_title')}</h2>
+      <label class="field"><span class="lab">${t('ex_name')}</span><input data-in="exeditname" value="${esc(ex.name)}"></label>
+      <label class="field"><span class="lab">${t('part')}</span>
+        <div class="chips">${Data.MUSCLES.map(m => `<div class="chip ${m.key === ex.muscle ? 'active' : ''}" data-act="exedit-muscle" data-key="${m.key}">${Data.muscleName(m.key)}</div>`).join('')}</div>
+      </label>
+      <p class="muted small">${used ? t('ex_edit_used', { n: used }) : t('ex_edit_unused')}</p>
+      <button class="btn mb" data-act="save-exedit">${t('save')}</button>
+      ${used ? '' : `<button class="btn danger" data-act="del-exercise" data-id="${exId}">${t('ex_delete')}</button>`}`, { stack: true });
+  }
+  // その種目が記録・テンプレで何回使われているか(削除の可否と、編集の影響範囲の案内に使う)
+  function exerciseUseCount(exId) {
+    let n = 0;
+    Store.getSessions().forEach(s => (s.exercises || []).forEach(we => { if (we.exerciseId === exId) n++; }));
+    Store.getTemplates().forEach(tp => (tp.exercises || []).forEach(te => { if (te.exerciseId === exId) n++; }));
+    return n;
   }
 
   /* ============ レストタイマー ============
@@ -2028,10 +2057,33 @@
     // カスタム種目追加は種目ピッカーを置き換えて開くので、戻る時はピッカーを復帰させる
     'newex-back': () => { if (picker.onPick) openPicker(picker.onPick); else closeSheet(); },
     'newex-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); newExMuscle = d.key; },
+    'ex-edit': (d) => openExerciseEdit(d.id),
+    'exedit-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); exEditMuscle = d.key; },
+    'exedit-back': () => { const o = $$('.sheet-overlay'); if (o.length > 1) removeSheet(o[o.length - 1]); else closeSheet(); },
+    'save-exedit': () => {
+      const name = (($('[data-in="exeditname"]') || {}).value || '').trim();
+      if (!name) { toast(t('need_name')); return; }
+      if (!exEditMuscle) { toast(t('need_part')); return; }
+      const dup = Store.getExercises().find(e => e.id !== exEditId && e.name.trim() === name);
+      if (dup) { toast(t('ex_dup', { p: Data.muscleName(dup.muscle) })); return; }
+      Store.updateExercise(exEditId, { name, muscle: exEditMuscle });
+      closeSheet(); render(); toast(t('ex_updated'));
+    },
+    'del-exercise': (d) => {
+      if (exerciseUseCount(d.id)) { toast(t('ex_del_used')); return; }
+      const ex = Store.exerciseById(d.id);
+      confirmSheet(t('ex_del_confirm', { n: ex ? ex.name : '' }), () => {
+        Store.deleteExercise(d.id); closeSheet(); render(); toast(t('ex_deleted'));
+      });
+    },
     'save-newex': () => {
       const name = ($('[data-in="newexname"]') || {}).value || '';
       if (!name.trim()) { toast(t('need_name')); return; }
-      const ex = Store.addExercise(name, newExMuscle || 'chest');
+      if (!newExMuscle) { toast(t('need_part')); return; }
+      // 同名が既にあるのに気づかず作ると、部位違いの重複種目ができて集計が割れる
+      const dup = Store.getExercises().find(e => e.name.trim() === name.trim());
+      if (dup) { toast(t('ex_dup', { p: Data.muscleName(dup.muscle) })); return; }
+      const ex = Store.addExercise(name, newExMuscle);
       closeSheet();
       if (state.wo.screen === 'session' && picker.onPick) addExerciseToSession(ex.id);
       else if (pendingTplPick) addTplExercise(ex.id);
@@ -2314,7 +2366,10 @@
     const we = cur.exercises[ei];
     const ex = Store.exerciseById(we.exerciseId) || { name: '' };
     showSheet(`${sheetHead('sheet-close', t('close'))}<h2>${esc(exName(ex))}</h2>
-      <button class="btn secondary mb" data-act="ex-info" data-id="${we.exerciseId}">${ic('info', 14)} ${t('about_ex')}</button>
+      <div class="row mb">
+        <button class="btn secondary" data-act="ex-info" data-id="${we.exerciseId}">${ic('info', 14)} ${t('about_ex')}</button>
+        <button class="btn secondary" data-act="ex-edit" data-id="${we.exerciseId}">${t('ex_edit_title')}</button>
+      </div>
       <label class="field"><span class="lab">${t('ex_note')}</span><textarea id="exnote">${esc(we.note || '')}</textarea></label>
       <button class="btn mb" data-act="exnote-save">${t('save_note')}</button>
       <div class="row">

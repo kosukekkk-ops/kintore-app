@@ -135,6 +135,26 @@
       async cond() { tab('condition'); },
       // グラフ: 3本柱のバランス
       async balance() { tab('graph'); },
+      // 目視確認用(掲載には使わない): カスタム種目の追加シート。
+      // 部位が未選択で開くこと・案内文が出ていることを実寸で見るため。
+      async newex() {
+        tab('workout'); await wait(120);
+        click('[data-act="resume"]'); await wait(200);
+        if (!click('[data-act="pick-ex"]')) throw new Error('種目を追加が見つからない');
+        await wait(250);
+        if (!click('[data-act="new-exercise"]')) throw new Error('カスタム種目追加が見つからない');
+        await wait(300);
+      },
+      // 目視確認用: 種目の編集シート(部位の付け直し)
+      async exedit() {
+        tab('workout'); await wait(120);
+        click('[data-act="resume"]'); await wait(200);
+        click('[data-act="pick-ex"]'); await wait(250);
+        if (!click('[data-act="ex-info"]')) throw new Error('解説ボタンが見つからない');
+        await wait(300);
+        if (!click('[data-act="ex-edit"]')) throw new Error('編集ボタンが見つからない');
+        await wait(320);
+      },
       // IAP審査用: プレミアムの購入画面(価格・購入ボタン・復元ボタンが写ること)
       async paywall() {
         tab('graph'); await wait(150);

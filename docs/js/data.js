@@ -339,6 +339,17 @@ const Data = (() => {
       pw_g_export: 'バックアップの書き出しはプレミアム機能です。',
       pw_free_of: '無料枠 {c}/{n}',
       s_legal: '規約・プライバシー', legal_terms: '利用規約', legal_privacy: 'プライバシーポリシー',
+      /* ---- 種目の編集(部位の付け直し) ---- 
+       * 追加時に部位を選ばせ、あとから直せるようにするための文言 */
+      part_required: '部位を選んでください（部位別のボリューム集計に使います）',
+      need_part: '部位を選んでください',
+      ex_dup: '同じ名前の種目が既にあります（{p}）。検索から選んでください。',
+      ex_edit: '編集', ex_edit_title: '種目を編集', ex_updated: '種目を更新しました',
+      ex_edit_used: 'この種目は記録・メニューで{n}回使われています。部位を変えると過去の記録の部位別集計もまとめて直ります。',
+      ex_edit_unused: 'まだどの記録にも使われていません。',
+      ex_delete: 'この種目を削除', ex_deleted: '種目を削除しました',
+      ex_del_used: '記録で使われている種目は削除できません',
+      ex_del_confirm: '「{n}」を種目一覧から削除します。よろしいですか？',
       pick_day: '', // (日付見出しはfmtDate)
       version: 'トレログ v1.0'
     },
@@ -476,6 +487,15 @@ const Data = (() => {
       pw_g_export: 'Backup export is a Premium feature.',
       pw_free_of: 'Free {c}/{n}',
       s_legal: 'Terms & Privacy', legal_terms: 'Terms of Use', legal_privacy: 'Privacy Policy',
+      part_required: 'Choose a muscle group (used for volume by muscle)',
+      need_part: 'Choose a muscle group',
+      ex_dup: 'An exercise with that name already exists ({p}). Pick it from search instead.',
+      ex_edit: 'Edit', ex_edit_title: 'Edit exercise', ex_updated: 'Exercise updated',
+      ex_edit_used: 'Used {n} times in workouts and routines. Changing the muscle group also fixes volume-by-muscle for past records.',
+      ex_edit_unused: 'Not used in any record yet.',
+      ex_delete: 'Delete this exercise', ex_deleted: 'Exercise deleted',
+      ex_del_used: 'Exercises used in records cannot be deleted',
+      ex_del_confirm: 'Remove 「{n}」 from the exercise list. Are you sure?',
       pick_day: '',
       version: 'ToreLog v1.0'
     }
