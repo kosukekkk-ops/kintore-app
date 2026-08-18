@@ -20,12 +20,14 @@ const K = (back) => {
   return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
 };
 
-function boot(seed) {
+function boot(seed, pre) {
   const dom = new JSDOM(indexHtml, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
   const w = dom.window, d = dom.window.document;
   w.scrollTo = () => {};
   if (!w.matchMedia) w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
   w.localStorage.setItem('kintore:settings', JSON.stringify({ unit: 'kg', lang: 'ja', seedVersion: 4, intervalBtnMig: 1, rest180Mig: 1 }));
+  // pre は eval の前に走る。旧SEED_VERSIONの端末を再現して移行処理を通すために使う。
+  if (pre) pre({ w, d });
   w.eval(bundle);
   d.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true }));
   const $ = (s) => d.querySelector(s);
@@ -79,12 +81,12 @@ console.log('\n[2] 同名の種目が既にあるとき');
   openNewExSheet(a);
   const before = a.exs().length;
   const seeded = a.exs().find(e => e.name === 'シュラッグ');
-  ok(!!seeded && seeded.muscle === 'shoulder', '初期種目のシュラッグは「肩」で入っている', seeded && seeded.muscle);
+  ok(!!seeded && seeded.muscle === 'back', '初期種目のシュラッグは「背中」で入っている', seeded && seeded.muscle);
   a.type('[data-in="newexname"]', 'シュラッグ');
   a.click('.chips [data-act="newex-muscle"][data-key="chest"]');
   a.click('[data-act="save-newex"]');
   ok(a.exs().length === before, '同名は作成されない（部位違いの重複ができない）');
-  ok(/既にあります/.test(a.toastText()) && /肩/.test(a.toastText()), '既存の部位を添えて知らせる', a.toastText());
+  ok(/既にあります/.test(a.toastText()) && /背中/.test(a.toastText()), '既存の部位を添えて知らせる', a.toastText());
 }
 
 /* ---------- 3. あとから部位を直せる ---------- */
@@ -187,7 +189,7 @@ console.log('\n[6] 回帰');
   const a = boot();
   ok(a.exs().length >= 80, '初期種目のシードが従来どおり', String(a.exs().length));
   const shrug = a.exs().find(e => e.name === 'シュラッグ');
-  ok(shrug && shrug.muscle === 'shoulder', 'シード側のシュラッグは肩のまま');
+  ok(shrug && shrug.muscle === 'back', 'シード側のシュラッグは背中');
   for (const tab of ['workout', 'history', 'graph', 'menu', 'condition']) {
     a.click(`.tabbar button[data-tab="${tab}"]`);
     const v = a.$('.view.active');
@@ -248,6 +250,67 @@ console.log('[8] 履歴の詳細画面から直せる');
   a.click('[data-act="save-exedit"]');
   const det2 = a.$('#view-history').textContent;
   ok(/背中/.test(det2) && !/胸/.test(det2), 'その場で背中に直る', det2.slice(0, 80));
+}
+
+/* ---------- 9. シードの分類訂正が既存端末に届くこと（シュラッグ 肩→背中） ---------- */
+console.log('');
+console.log('[9] シードの部位訂正が既存の端末に反映される');
+{
+  const seedList = boot().exs();   // 現行シードの一覧を取る
+  // 旧バージョン(SEED_VERSION=4, シュラッグ=肩)の端末を再現して起動させる
+  const a = boot(null, ({ w }) => {
+    const old = seedList.map(e => e.name === 'シュラッグ' ? Object.assign({}, e, { muscle: 'shoulder' }) : e);
+    w.localStorage.setItem('kintore:exercises', JSON.stringify(old));
+    w.localStorage.setItem('kintore:settings', JSON.stringify({ unit: 'kg', lang: 'ja', seedVersion: 4, intervalBtnMig: 1, rest180Mig: 1 }));
+  });
+  const after = a.exs().find(e => e.name === 'シュラッグ');
+  ok(after && after.muscle === 'back', '旧データのシュラッグが背中に訂正される', after && after.muscle);
+  ok(a.exs().filter(e => e.name === 'シュラッグ').length === 1, '重複して増えたりしない');
+  const st = JSON.parse(a.w.localStorage.getItem('kintore:settings'));
+  ok(st.seedVersion === 5, 'seedVersionが5に上がる', String(st.seedVersion));
+}
+
+/* ---------- 10. ユーザーが自分で直した種目は上書きしない ---------- */
+console.log('');
+console.log('[10] 自分で直した部位はシードの訂正より優先される');
+{
+  const seedList = boot().exs();
+  const a = boot(null, ({ w }) => {
+    // ユーザーが「シュラッグは肩でいい」と自分で編集した状態(edited=true)
+    const old = seedList.map(e => e.name === 'シュラッグ' ? Object.assign({}, e, { muscle: 'shoulder', edited: true }) : e);
+    w.localStorage.setItem('kintore:exercises', JSON.stringify(old));
+    w.localStorage.setItem('kintore:settings', JSON.stringify({ unit: 'kg', lang: 'ja', seedVersion: 4, intervalBtnMig: 1, rest180Mig: 1 }));
+  });
+  const after = a.exs().find(e => e.name === 'シュラッグ');
+  ok(after && after.muscle === 'shoulder', '編集済みの種目は肩のまま守られる', after && after.muscle);
+}
+
+/* ---------- 11. 編集するとeditedが立つ ---------- */
+console.log('');
+console.log('[11] 編集したら以後シードに上書きされない印がつく');
+{
+  const a = boot();
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="open-settings"]');
+  a.click('[data-act="ex-manage"]');
+  a.type('[data-in="exq"]', 'シュラッグ');
+  const target = a.exs().find(e => e.name === 'シュラッグ');
+  ok(!target.edited, '初期状態ではeditedが立っていない');
+  a.click('[data-act="ex-edit"][data-id="' + target.id + '"]');
+  a.click('.chips [data-act="exedit-muscle"][data-key="shoulder"]');
+  a.click('[data-act="save-exedit"]');
+  const after = a.exs().find(e => e.id === target.id);
+  ok(after.muscle === 'shoulder' && after.edited === true, '編集するとeditedが立つ');
+}
+
+/* ---------- 12. 新規インストールは最初から背中 ---------- */
+console.log('');
+console.log('[12] 新規インストール');
+{
+  const a = boot();
+  const s = a.exs().find(e => e.name === 'シュラッグ');
+  ok(s && s.muscle === 'back', '最初からシュラッグは背中', s && s.muscle);
+  ok(a.exs().filter(e => e.name === 'シュラッグ').length === 1, '重複していない');
 }
 
 console.log(`\n=== ${pass} passed / ${fail} failed ===`);

@@ -32,7 +32,9 @@ const Data = (() => {
   const SUB_ORDER = ['大腿四頭筋', 'ハムストリングス', '臀部', '内転・外転', 'ふくらはぎ', '上腕二頭筋', '上腕三頭筋'];
 
   /* ---------- 初期種目。muscle=部位, sub=サブ部位(任意), equip=器具, en=英語名(任意) ---------- */
-  const SEED_VERSION = 4; // これを上げると既存ユーザーにも不足分の追加＋メタ情報(英語名など)の反映が走る
+  // これを上げると既存ユーザーにも不足分の追加＋メタ情報の反映が走る。
+  // v5: シュラッグを肩→背中へ訂正(僧帽筋のため)。ユーザーが自分で部位を変えた種目は触らない。
+  const SEED_VERSION = 5;
   // 廃止した初期種目(未使用なら移行時に削除)。肩を10種に拡張した際の統合対象。
   const DEPRECATED_EXERCISES = ['アイソラテラルショルダープレス', 'リアデルトフライ'];
   const SEED_EXERCISES = [
@@ -79,7 +81,7 @@ const Data = (() => {
     { name: 'ベントオーバーリアレイズ', en: 'Bent-over Rear Delt Raise', muscle: 'shoulder', equip: 'フリー' },
     { name: 'アップライトロー', en: 'Upright Row', muscle: 'shoulder', equip: 'フリー' },
     { name: 'フェイスプル', en: 'Face Pull', muscle: 'shoulder', equip: 'ケーブル' },
-    { name: 'シュラッグ', en: 'Shrug', muscle: 'shoulder', equip: 'フリー' },
+    { name: 'シュラッグ', en: 'Shrug', muscle: 'back', equip: 'フリー' },
     // 腕
     { name: 'アームカール', en: 'Arm Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'マシン' },
     { name: 'バーベルカール', en: 'Barbell Curl', muscle: 'arm', sub: '上腕二頭筋', equip: 'フリー' },

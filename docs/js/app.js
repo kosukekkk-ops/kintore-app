@@ -2113,7 +2113,9 @@
       if (!exEditMuscle) { toast(t('need_part')); return; }
       const dup = Store.getExercises().find(e => e.id !== exEditId && e.name.trim() === name);
       if (dup) { toast(t('ex_dup', { p: Data.muscleName(dup.muscle) })); return; }
-      Store.updateExercise(exEditId, { name, muscle: exEditMuscle });
+      // edited を立てておくと、以後シード側で分類を訂正しても上書きされない。
+      // 「自分の分け方に直した」というユーザーの意思をアプリ側の都合より優先する。
+      Store.updateExercise(exEditId, { name, muscle: exEditMuscle, edited: true });
       closeSheet(); render(); toast(t('ex_updated'));
     },
     'del-exercise': (d) => {

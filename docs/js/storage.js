@@ -3,7 +3,8 @@
  * 複数端末同期は行わない(将来クラウド同期を足せるよう、読み書きはこの層に集約)。
  *
  * コレクション:
- *   exercises  種目マスタ  [{ id, name, muscle, custom, order }]
+ *   exercises  種目マスタ  [{ id, name, muscle, custom, order, edited }]
+ *                edited=true はユーザーが部位/名前を自分で直した印。シードの訂正で上書きしない。
  *   sessions   ワークアウト [{ id, date, name, note, startedAt, finishedAt, done,
  *                             exercises:[{ id, exerciseId, note, sets:[{ id, weight, reps, warmup, done }] }] }]
  *   templates  テンプレート [{ id, name, description, order, exercises:[{ exerciseId, sets, reps, weight }] }]
@@ -181,7 +182,11 @@ const Store = (() => {
         list = list.map(e => {
           const m = meta[e.name];
           if (!m || e.custom) return e;
-          return Object.assign({}, e, { en: m.en || e.en, sub: m.sub || e.sub || '', equip: m.equip || e.equip || '' });
+          const patch = { en: m.en || e.en, sub: m.sub || e.sub || '', equip: m.equip || e.equip || '' };
+          // 部位の分類ミス(例: シュラッグを肩にしていた)を後から訂正できるようにする。
+          // ただしユーザーが「種目を編集」で自分の分け方に直した種目は絶対に上書きしない。
+          if (!e.edited) patch.muscle = m.muscle;
+          return Object.assign({}, e, patch);
         });
         this.setExercises(list);
         this.setSettings({ seedVersion: seedVer });
