@@ -10,7 +10,7 @@ const path = require('path');
 const { JSDOM } = require(path.join(__dirname, '..', 'node_modules', 'jsdom'));
 
 const DOCS = path.join(__dirname, '..', 'docs');
-const FILES = ['js/storage.js', 'js/premium.js', 'js/data.js', 'js/charts.js', 'js/app.js'];
+const FILES = ['js/storage.js', 'js/premium.js', 'js/legal.js', 'js/native.js', 'js/data.js', 'js/charts.js', 'js/app.js'];
 const bundle = FILES.map(f => fs.readFileSync(path.join(DOCS, f), 'utf8')).join('\n;\n');
 const indexHtml = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
 
@@ -38,7 +38,9 @@ function boot(opts) {
   if (opts.native) {
     const PID = 'io.github.kosukekkkops.torelog.premium';
     // 実StoreKitに合わせ、購入したらentitlementsにも現れるようにする
-    let owned = !!opts.premium;
+    // storeOwned を分けて渡せるようにする。機種変更・返金の直後は
+    // 「端末のフラグ」と「StoreKitの実態」がズレている状態を作れる必要がある。
+    let owned = opts.storeOwned === undefined ? !!opts.premium : opts.storeOwned;
     const np = {
       getPurchases: async () => ({ purchases: owned ? [{ productIdentifier: PID }] : [] }),
       getProduct: async () => ({ product: { priceString: '¥720' } }),
@@ -179,19 +181,15 @@ console.log('\n[4] 購入と復元');
     ok(!a.$('.lock-card'), '購入直後にロックが外れる');
   }
   {
-    // 別端末で購入済み → 起動時のsyncでロックが外れる
-    const a = boot({ native: true, premium: false });
-    a.w.__setOwned(true);
-    a.d.dispatchEvent(new a.w.Event('DOMContentLoaded', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 30));
+    // 別端末で購入済み(端末フラグは未購入のまま) → 起動時のsyncで解放される
+    const a = boot({ native: true, premium: false, storeOwned: true });
+    await new Promise(r => setTimeout(r, 60));
     ok(JSON.parse(a.w.localStorage.getItem('kintore:premium')) === true, '起動時syncで購入済みを検出');
   }
   {
-    // 返金・購入取消 → 起動時のsyncでロックが戻る
-    const a = boot({ native: true, premium: true });
-    a.w.__setOwned(false);
-    a.d.dispatchEvent(new a.w.Event('DOMContentLoaded', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 30));
+    // 返金・購入取消(端末フラグは購入済みのまま) → 起動時のsyncでロックが戻る
+    const a = boot({ native: true, premium: true, storeOwned: false });
+    await new Promise(r => setTimeout(r, 60));
     ok(JSON.parse(a.w.localStorage.getItem('kintore:premium')) === false, '返金後はプレミアムが外れる');
   }
   {

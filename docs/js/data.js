@@ -350,6 +350,8 @@ const Data = (() => {
       ex_delete: 'この種目を削除', ex_deleted: '種目を削除しました',
       ex_del_used: '記録で使われている種目は削除できません',
       ex_del_confirm: '「{n}」を種目一覧から削除します。よろしいですか？',
+      /* ---- 画面を離れている間に出すレスト終了通知 ---- */
+      notif_rest_title: 'レスト終了', notif_rest_body: '次のセットへ',
       pick_day: '', // (日付見出しはfmtDate)
       version: 'トレログ v1.0'
     },
@@ -496,6 +498,7 @@ const Data = (() => {
       ex_delete: 'Delete this exercise', ex_deleted: 'Exercise deleted',
       ex_del_used: 'Exercises used in records cannot be deleted',
       ex_del_confirm: 'Remove 「{n}」 from the exercise list. Are you sure?',
+      notif_rest_title: 'Rest finished', notif_rest_body: 'Time for your next set',
       pick_day: '',
       version: 'ToreLog v1.0'
     }

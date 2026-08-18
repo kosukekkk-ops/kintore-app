@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // レストタイマーの通知音を本体の消音スイッチに邪魔させない。
+        // 既定(ambient)だとマナーモードで無音になり、ジムでタイマーとして使えない。
+        // .mixWithOthers を付けているので、聴いている音楽を止めてしまうこともない。
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback, mode: .default, options: [.mixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            // 音が出せない状況でもアプリ自体は動かす(バイブと通知は生きている)
+            print("AVAudioSession setup failed: \(error)")
+        }
         return true
     }
 

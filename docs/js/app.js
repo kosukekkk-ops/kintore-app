@@ -1107,9 +1107,8 @@
   function fireAlert() {
     const s = S();
     if (s.restSound !== false) beep();
-    if (s.restVibe !== false && navigator.vibrate) {
-      try { navigator.vibrate([220, 120, 220, 120, 380]); } catch (e) { /* 非対応 */ }
-    }
+    // iOSには navigator.vibrate が無い。Native側がHapticsへ振り分ける。
+    if (s.restVibe !== false) Native.vibrate();
   }
   function startAlarm() {
     stopAlarm();
@@ -1125,12 +1124,21 @@
     if (alarm.id) clearInterval(alarm.id);
     alarm.id = null;
     setAudioSession('auto');           // 音楽を邪魔しないよう元に戻す
-    if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) { /* 非対応 */ } }
+    Native.vibrateStop();
   }
   function notifyRestDone() {
     if (timer.notified) return;
     timer.notified = true;
     startAlarm();
+  }
+
+  /* ---- 画面を離れている間の通知予約 ----
+   * 前面にいる間はアプリ内のアラームが鳴らすので予約しない(二重に鳴るため)。
+   * 画面を消した/他アプリへ移った瞬間に、終了時刻の通知を仕込む。 */
+  function syncRestNotification() {
+    const running = !timer.paused && !timer.done && timer.endAt > Date.now();
+    if (document.hidden && running) Native.scheduleRestDone(timer.endAt);
+    else Native.cancelRestDone();
   }
 
   function tickStart() {
@@ -1154,12 +1162,15 @@
   function startTimer(sec) {
     stopAlarm();
     primeAudio(); // 開始のタップを利用して音を出せる状態にしておく
+    // 「インターバル」を押した今が、通知の許可を聞く理由が一番伝わる瞬間
+    Native.ensureNotifyPermission();
     timer.total = sec; timer.remain = sec; timer.done = false; timer.paused = false;
     timer.notified = false;
     timer.endAt = Date.now() + sec * 1000;
     timer.min = false; // 大表示設定なら開始のたびに大きく出す(前回の縮小は引き継がない)
     tickStart();
     syncTimerBar();
+    syncRestNotification();
   }
   function stopTimer() { if (timer.id) clearInterval(timer.id); timer.id = null; }
   // 一時停止/再開(残り時間は保持)
@@ -1168,6 +1179,7 @@
     if (timer.paused) { timer.paused = false; timer.endAt = Date.now() + timer.remain * 1000; tickStart(); }
     else { stopTimer(); timer.paused = true; timer.endAt = 0; }
     syncTimerBar();
+    syncRestNotification();
   }
   function addTimerSeconds(sec) {
     stopAlarm();
@@ -1176,11 +1188,13 @@
     if (timer.paused) { timer.endAt = 0; }
     else { timer.endAt = (timer.endAt || Date.now()) + sec * 1000; tickStart(); }
     syncTimerBar();
+    syncRestNotification();
   }
   function clearTimer() {
     stopTimer(); stopAlarm();
     timer.remain = 0; timer.total = 0; timer.done = false; timer.paused = false; timer.endAt = 0; timer.notified = false;
     syncTimerBar();
+    Native.cancelRestDone();
   }
   // 下部固定アクションバー。固定にすることでスクロール中にボタンが本文と重ならない。
   // - 記録画面: 破棄 / 完了して保存 / ▶ インターバル(タイマー表示中は隠す)
@@ -2542,7 +2556,12 @@
   function pushBackTrap() { try { history.pushState({ kt: 1 }, ''); } catch (e) { /* 非対応環境は無視 */ } }
 
   /* ============ 起動 ============ */
+  // 二重起動を防ぐ。boot() が2回走ると body のクリック委譲が二重登録され、
+  // 1タップで同じ操作が2回実行されてしまう。
+  let booted = false;
   function boot() {
+    if (booted) return;
+    booted = true;
     Store.ensureSeed();
     // タイマー起動を「▶ インターバル」ボタン主導へ変更した際の一回きり移行:
     // 既存ユーザーの自動スタートもOFFに揃える(設定でいつでも戻せる)
@@ -2582,7 +2601,13 @@
       setTimeout(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) { /* 古いWebViewは無視 */ } }, 300);
     });
     // 画面を消していた間にレストが終わっていたら、戻ってきた時点で知らせる
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncTimerFromClock(); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncTimerFromClock();
+      syncRestNotification();
+    });
+    // iOSでアプリが背面に回るとき visibilitychange が来ないことがあるので保険
+    window.addEventListener('pagehide', syncRestNotification);
+    window.addEventListener('blur', syncRestNotification);
     window.addEventListener('focus', syncTimerFromClock);
     // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
     pushBackTrap();

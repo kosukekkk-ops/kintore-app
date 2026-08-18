@@ -10,7 +10,7 @@ const path = require('path');
 const { JSDOM } = require(path.join(__dirname, '..', 'node_modules', 'jsdom'));
 
 const DOCS = path.join(__dirname, '..', 'docs');
-const FILES = ['js/storage.js', 'js/premium.js', 'js/legal.js', 'js/data.js', 'js/charts.js', 'js/app.js'];
+const FILES = ['js/storage.js', 'js/premium.js', 'js/legal.js', 'js/native.js', 'js/data.js', 'js/charts.js', 'js/app.js'];
 const bundle = FILES.map(f => fs.readFileSync(path.join(DOCS, f), 'utf8')).join('\n;\n');
 const indexHtml = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
 
