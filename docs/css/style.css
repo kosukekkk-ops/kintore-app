@@ -669,3 +669,10 @@ ul.tips li { font-size: 14px; margin-bottom: 5px; line-height: 1.55; }
 .legal-body ol { padding-left: 1.3em; margin: 6px 0; }
 .legal-body li { margin: 5px 0; }
 .legal-body .mono { font-family: var(--font-mono); font-size: 12px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+
+/* 履歴詳細の種目行: 間違いに気づいた場所からそのまま直せるようにする */
+.tap-row { cursor: pointer; }
+.tap-row:active { opacity: .7; }
+.row-edit { font-size: 12px; color: var(--accent); font-weight: 600; flex: none; }
+/* 長い種目名でも「種目を編集」を押し出さない(名前側を省略する) */
+.tap-row > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

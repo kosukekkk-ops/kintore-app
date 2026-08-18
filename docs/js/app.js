@@ -91,7 +91,8 @@
     hist: { ym: null, screen: 'list', sessionId: null },
     menu: { screen: 'list', editId: null, draft: null },
     graph: { exerciseId: null, metric: 'max' },
-    cond: { screen: 'list', date: null, backTo: null } // backTo='home': ホームの柱カード経由(戻り先もホーム)
+    cond: { screen: 'list', date: null, backTo: null }, // backTo='home': ホームの柱カード経由(戻り先もホーム)
+    settings: { screen: 'list', exq: '' }
   };
   let cur = null;
   const picker = { q: '', muscle: 'all', onPick: null };
@@ -1339,7 +1340,9 @@
     s.exercises.forEach(we => {
       const ex = Store.exerciseById(we.exerciseId) || { name: '(?)', muscle: '' };
       const cardio = Data.isCardioMuscle(ex.muscle);
-      h += `<div style="margin:10px 0"><div class="row" style="margin-bottom:4px"><b>${esc(exName(ex))}</b> ${ex.muscle ? muscleTag(ex.muscle) : ''}</div>`;
+      h += `<div style="margin:10px 0"><div class="row tap-row" style="margin-bottom:4px" data-act="ex-edit" data-id="${we.exerciseId}">
+        <b>${esc(exName(ex))}</b> ${ex.muscle ? muscleTag(ex.muscle) : ''}<div class="spacer"></div>
+        <span class="row-edit">${t('ex_edit_title')}</span></div>`;
       h += we.sets.map((set, i) => cardio
         ? `<div class="small" style="color:var(--text-dim)">${i + 1}. ${Data.fmtNum(set.duration)}${t('col_min')} / ${Data.fmtNum(set.distance)}km ${set.done ? ic('check', 11) : ''}</div>`
         : `<div class="small" style="color:var(--text-dim)">${set.warmup ? 'W' : setNumber(we, i)}. ${disp(set.weight)}${uLab()} × ${set.reps || 0}${t('col_reps')} ${set.done ? ic('check', 11) : ''}</div>`
@@ -1897,6 +1900,7 @@
 
   /* ============ 設定タブ ============ */
   function renderSettings() {
+    if (state.settings.screen === 'exercises') return renderExerciseManage();
     const s = S();
     const accent = Store.getAccent();
     let h = `<button class="back-btn" data-act="settings-back">‹ ${t('back')}</button>`;
@@ -1961,12 +1965,39 @@
       <button class="btn secondary mb" data-act="import">${t('import_btn')}</button>
       <button class="btn danger" data-act="reset">${t('reset_btn')}</button>
       <p class="muted small mt">${t('data_hint')}</p></div>`;
+    h += `<div class="card"><h2>${t('s_exercises')}</h2>
+      <button class="btn secondary" data-act="ex-manage">${t('ex_manage_btn')}</button>
+      <p class="muted small mt">${t('ex_manage_hint')}</p></div>`;
     h += `<div class="card"><h2>${t('contact_title')}</h2>
       <button class="btn secondary" data-act="contact">${t('contact_btn')}</button></div>`;
     h += `<div class="card"><h2>${t('s_legal')}</h2>
       <button class="lrow" data-act="legal" data-kind="terms"><div class="lmain"><div class="ltitle">${t('legal_terms')}</div></div><div style="font-size:18px;color:var(--text-dim)">›</div></button>
       <button class="lrow" data-act="legal" data-kind="privacy"><div class="lmain"><div class="ltitle">${t('legal_privacy')}</div></div><div style="font-size:18px;color:var(--text-dim)">›</div></button></div>`;
     h += `<p class="muted small center">${t('version')}</p>`;
+    return h;
+  }
+
+  /* ---- 種目の管理(名前・部位の修正はここが本拠地) ---- */
+  function renderExerciseManage() {
+    const q = (state.settings.exq || '').trim().toLowerCase();
+    const match = (e) => !q || (e.name + ' ' + (e.en || '')).toLowerCase().includes(q);
+    const all = Store.getExercises().filter(match);
+    const custom = all.filter(e => e.custom);
+    const seeded = all.filter(e => !e.custom);
+    const row = (e) => {
+      const used = exerciseUseCount(e.id);
+      return `<div class="lrow" data-act="ex-edit" data-id="${e.id}">
+        <div class="lmain"><div class="ltitle">${esc(exName(e))}</div>
+        <div class="lsub">${used ? t('ex_used_n', { n: used }) : t('ex_edit_unused')}</div></div>
+        ${muscleTag(e.muscle)}<div style="font-size:18px;color:var(--text-dim);margin-left:6px">›</div></div>`;
+    };
+    let h = `<button class="back-btn" data-act="ex-manage-back">‹ ${t('settings')}</button>`;
+    h += `<div class="head"><h1 style="font-size:18px">${t('ex_manage_title')}</h1></div>`;
+    h += `<input data-in="exq" placeholder="${t('search_ph')}" value="${esc(state.settings.exq || '')}">`;
+    h += `<p class="muted small">${t('ex_manage_hint')}</p>`;
+    if (!all.length) return h + `<div class="empty">${ic('list')}${t('no_hit')}</div>`;
+    if (custom.length) h += `<div class="sec-lbl">${t('ex_group_custom')}</div><div class="card">${custom.map(row).join('')}</div>`;
+    if (seeded.length) h += `<div class="sec-lbl">${t('ex_group_seed')}</div><div class="card">${seeded.map(row).join('')}</div>`;
     return h;
   }
 
@@ -2013,7 +2044,7 @@
   let exNoteTargetIndex = null;
 
   const ACTIONS = {
-    'open-settings': () => { $$('.view').forEach(v => v.classList.remove('active')); $('#view-settings').classList.add('active'); state.tab = 'settings'; render(); },
+    'open-settings': () => { $$('.view').forEach(v => v.classList.remove('active')); $('#view-settings').classList.add('active'); state.tab = 'settings'; state.settings.screen = 'list'; render(); },
     'settings-back': () => switchTab('workout'),
     'go-history': () => switchTab('history'),
     'rm-calc': () => openRmCalc(),
@@ -2072,6 +2103,8 @@
     'newex-back': () => { if (picker.onPick) openPicker(picker.onPick); else closeSheet(); },
     'newex-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); newExMuscle = d.key; },
     'ex-edit': (d) => openExerciseEdit(d.id),
+    'ex-manage': () => { state.settings.screen = 'exercises'; render(); window.scrollTo(0, 0); },
+    'ex-manage-back': () => { state.settings.screen = 'list'; render(); window.scrollTo(0, 0); },
     'exedit-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); exEditMuscle = d.key; },
     'exedit-back': () => { const o = $$('.sheet-overlay'); if (o.length > 1) removeSheet(o[o.length - 1]); else closeSheet(); },
     'save-exedit': () => {
@@ -2262,6 +2295,7 @@
     const el = e.target.closest('[data-in]');
     if (!el) return;
     const k = el.dataset.in, v = el.value;
+    if (k === 'exq') { state.settings.exq = v; const l = $('#view-settings'); if (l) { l.innerHTML = renderExerciseManage(); const i = $('[data-in="exq"]'); if (i) { i.value = v; i.focus(); } } return; }
     if (k === 'sname' && cur) { cur.name = v; saveCur(); return; }
     // 記録漏れの救済: 記録日をあとから変更できる(履歴・グラフの集計日も動く)
     if (k === 'sdate' && cur) { if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { cur.date = v; saveCur(); render(); toast(t('date_changed', { d: Data.fmtDate(v) })); } return; }

@@ -155,6 +155,28 @@
         if (!click('[data-act="ex-edit"]')) throw new Error('編集ボタンが見つからない');
         await wait(320);
       },
+      // 目視確認用: 設定 → 種目の管理
+      async exmanage() {
+        click('[data-act="open-settings"]'); await wait(200);
+        if (!click('[data-act="ex-manage"]')) throw new Error('種目の管理が見つからない');
+        await wait(300);
+      },
+      // 目視確認用: 履歴の詳細(種目行から編集に行けること)
+      async histdetail() {
+        // 最長クラスの種目名でも「種目を編集」が押し出されないか確認したいので差し込む
+        const ex = JSON.parse(localStorage.getItem(P + 'exercises'));
+        const long = ex.find(e => e.name === 'ハンマーストレングス チェストプレス');
+        if (long) {
+          const ss = JSON.parse(localStorage.getItem(P + 'sessions'));
+          const target = ss.find(x => x.id === 'sess-b');
+          target.exercises.push({ id: 'wlong', exerciseId: long.id, note: '', sets: sets(3, 60, 10, true) });
+          localStorage.setItem(P + 'sessions', JSON.stringify(ss));
+        }
+        tab('history'); await wait(200);
+        const row = $('[data-act="open-session"]');
+        if (!row) throw new Error('履歴の行が見つからない');
+        row.click(); await wait(300);
+      },
       // IAP審査用: プレミアムの購入画面(価格・購入ボタン・復元ボタンが写ること)
       async paywall() {
         tab('graph'); await wait(150);

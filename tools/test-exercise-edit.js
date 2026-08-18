@@ -196,5 +196,59 @@ console.log('\n[6] 回帰');
   ok(true, '全タブが描画される');
 }
 
+/* ---------- 7. 設定の「種目の管理」から直せること ---------- */
+console.log('');
+console.log('[7] 設定 → 種目の管理');
+{
+  const a = boot();
+  const list = a.exs();
+  list.push({ id: 'mine1', name: 'マイシュラッグ', muscle: 'chest', custom: true, order: list.length });
+  a.w.localStorage.setItem('kintore:exercises', JSON.stringify(list));
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="open-settings"]');
+  ok(!!a.$('[data-act="ex-manage"]'), '設定に「種目の管理」がある');
+  a.click('[data-act="ex-manage"]');
+  const v = a.$('#view-settings').textContent;
+  ok(/自分で追加した種目/.test(v), '自分で追加した種目の見出しが出る');
+  ok(/最初から入っている種目/.test(v), '初期種目の見出しも出る');
+  ok(v.indexOf('自分で追加した種目') < v.indexOf('最初から入っている種目'), '自分の種目が先に並ぶ');
+  a.type('[data-in="exq"]', 'マイシュラッグ');
+  const v2 = a.$('#view-settings').textContent;
+  ok(/マイシュラッグ/.test(v2) && !/ベンチプレス/.test(v2), '検索で絞り込める');
+  a.click('[data-act="ex-edit"][data-id="mine1"]');
+  ok(!!a.$('[data-in="exeditname"]'), '一覧から編集シートが開く');
+  a.click('.chips [data-act="exedit-muscle"][data-key="back"]');
+  a.click('[data-act="save-exedit"]');
+  ok(a.exs().find(e => e.id === 'mine1').muscle === 'back', '部位を背中に直せる');
+  a.click('[data-act="ex-manage-back"]');
+  ok(/種目の管理/.test(a.$('#view-settings').textContent), '設定一覧に戻れる');
+}
+
+/* ---------- 8. 履歴詳細から直せること（間違いに気づく画面） ---------- */
+console.log('');
+console.log('[8] 履歴の詳細画面から直せる');
+{
+  const a = boot();
+  const list = a.exs();
+  list.push({ id: 'hx1', name: 'シュラッグ自作', muscle: 'chest', custom: true, order: list.length });
+  a.w.localStorage.setItem('kintore:exercises', JSON.stringify(list));
+  a.w.localStorage.setItem('kintore:sessions', JSON.stringify([{
+    id: 'sh', date: K(1), name: '背中の日', startedAt: K(1) + 'T19:00', finishedAt: K(1) + 'T20:00', done: true,
+    exercises: [{ id: 'we', exerciseId: 'hx1', sets: [{ id: 's', weight: 25, reps: 30, warmup: false, done: true }] }]
+  }]));
+  a.click('.tabbar button[data-tab="history"]');
+  a.click('[data-act="open-session"][data-id="sh"]');
+  const det = a.$('#view-history').textContent;
+  ok(/シュラッグ自作/.test(det), '履歴の詳細が開く');
+  ok(/胸/.test(det), '(修正前)胸と表示されている');
+  ok(!!a.$('.tap-row[data-act="ex-edit"]'), '種目行から編集に行ける');
+  a.click('.tap-row[data-act="ex-edit"]');
+  ok(!!a.$('[data-in="exeditname"]'), '編集シートが開く');
+  a.click('.chips [data-act="exedit-muscle"][data-key="back"]');
+  a.click('[data-act="save-exedit"]');
+  const det2 = a.$('#view-history').textContent;
+  ok(/背中/.test(det2) && !/胸/.test(det2), 'その場で背中に直る', det2.slice(0, 80));
+}
+
 console.log(`\n=== ${pass} passed / ${fail} failed ===`);
 process.exit(fail ? 1 : 0);

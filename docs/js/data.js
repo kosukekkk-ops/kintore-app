@@ -352,6 +352,11 @@ const Data = (() => {
       ex_del_confirm: '「{n}」を種目一覧から削除します。よろしいですか？',
       /* ---- 画面を離れている間に出すレスト終了通知 ---- */
       notif_rest_title: 'レスト終了', notif_rest_body: '次のセットへ',
+      /* ---- 種目の管理 ---- */
+      s_exercises: '種目', ex_manage_btn: '種目の管理',
+      ex_manage_title: '種目の管理', ex_group_custom: '自分で追加した種目', ex_group_seed: '最初から入っている種目',
+      ex_manage_hint: '名前や部位を間違えて登録しても、あとから直せます。部位を変えると過去の記録の部位別集計もまとめて直ります。',
+      ex_used_n: '記録・メニューで{n}回使用', no_hit: '見つかりませんでした',
       pick_day: '', // (日付見出しはfmtDate)
       version: 'トレログ v1.0'
     },
@@ -499,6 +504,10 @@ const Data = (() => {
       ex_del_used: 'Exercises used in records cannot be deleted',
       ex_del_confirm: 'Remove 「{n}」 from the exercise list. Are you sure?',
       notif_rest_title: 'Rest finished', notif_rest_body: 'Time for your next set',
+      s_exercises: 'Exercises', ex_manage_btn: 'Manage exercises',
+      ex_manage_title: 'Manage exercises', ex_group_custom: 'Your exercises', ex_group_seed: 'Built-in exercises',
+      ex_manage_hint: 'Fix a wrong name or muscle group any time. Changing the muscle group also fixes volume-by-muscle for past records.',
+      ex_used_n: 'Used {n} times', no_hit: 'No matches',
       pick_day: '',
       version: 'ToreLog v1.0'
     }
