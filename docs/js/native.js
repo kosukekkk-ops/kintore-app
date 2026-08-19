@@ -90,9 +90,16 @@ const Native = (() => {
     }
     return false;
   }
+  /* 軽い触覚。スワイプで送れたことを指に返すための短い一発。
+   * アラーム用の vibrate() は強すぎるので分けている。 */
+  function tick() {
+    const h = plug('Haptics');
+    if (h) { try { h.impact({ style: 'LIGHT' }); return true; } catch (e) { /* 非対応 */ } }
+    return false;
+  }
   function vibrateStop() {
     if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) {} }
   }
 
-  return { isNative, ensureNotifyPermission, scheduleRestDone, cancelRestDone, vibrate, vibrateStop, REST_NOTIF_ID };
+  return { isNative, ensureNotifyPermission, scheduleRestDone, cancelRestDone, vibrate, vibrateStop, tick, REST_NOTIF_ID };
 })();

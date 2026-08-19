@@ -43,7 +43,7 @@ function boot(opts) {
     let owned = opts.storeOwned === undefined ? !!opts.premium : opts.storeOwned;
     const np = {
       getPurchases: async () => ({ purchases: owned ? [{ productIdentifier: PID }] : [] }),
-      getProduct: async () => ({ product: { priceString: '¥720' } }),
+      getProduct: async () => ({ product: { priceString: '¥980' } }),
       purchaseProduct: async () => { owned = true; return {}; },
       restorePurchases: async () => { owned = !!opts.restorable; return {}; },
     };

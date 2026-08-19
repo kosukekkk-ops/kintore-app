@@ -60,7 +60,7 @@ const Premium = (() => {
     }
   }
 
-  // ストア上の表示価格(例 "¥720")。取得失敗時は空文字。
+  // ストア上の表示価格(例 "¥980")。取得失敗時は空文字。
   async function price() {
     if (cachedPrice) return cachedPrice;
     const np = plugin();

@@ -17,7 +17,7 @@
 #
 # 【実行順】
 #   1. ios-release        … ビルド → TestFlight (最初の1回でバンドルIDも自動発行される)
-#   2. iap-setup          … プレミアム(¥720・非消耗型)をApp Store Connectに作成
+#   2. iap-setup          … プレミアム(¥980・非消耗型)をApp Store Connectに作成
 #   3. release-prep       … 掲載メタデータ・審査連絡先・年齢制限・価格(無料)を登録
 #   4. screenshots-upload … store/screenshots/*.png をアップロード
 #   5. release-submit     … 最新ビルドを紐付け、バージョン＋IAPを審査へ提出
@@ -121,7 +121,7 @@ workflows:
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true     # まずTestFlight(自分の端末で最終確認)へ
 
-  # ================= 2. IAP商品(プレミアム¥720・非消耗型)の作成 =================
+  # ================= 2. IAP商品(プレミアム¥980・非消耗型)の作成 =================
   # 有料App契約が有効になってから実行する。冪等(既存ならスキップ)。
   iap-setup:
     name: IAP product setup (premium)
@@ -135,7 +135,7 @@ workflows:
         PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
         PRODUCT_NAME: "プレミアム(全機能解放)"
         PRODUCT_DESC: "種目別の詳しい分析、3本柱の14日推移、メニューとサプリの無制限登録、バックアップの書き出しを永続解放します。"
-        PRICE_JPY: "720"
+        PRICE_JPY: "980"
     scripts:
       - name: Create non-consumable IAP with JPY base price
         script: |
@@ -212,7 +212,7 @@ workflows:
           else:
               print('ja localization exists', flush=True)
 
-          # 3) 価格: 日本の価格ポイントから¥720を探して基準価格に設定
+          # 3) 価格: 日本の価格ポイントから¥980を探して基準価格に設定
           pts, cursor = [], f'/v2/inAppPurchases/{iid}/pricePoints?filter[territory]=JPN&limit=200'
           while cursor:
               s, d = api('GET', cursor)
@@ -375,7 +375,7 @@ workflows:
           本アプリは医療機器ではなく、医学的な診断・助言を行うものではありません。表示される数値は入力値にもとづく目安です。体調やけがに関する判断は必ず医師にご相談ください。トレーニングはご自身の責任と判断において安全に行ってください。"""
           DESC = '\n'.join(l.strip() for l in DESC.split('\n'))
           REVIEW_NOTES = """ログイン不要で、記録機能はすべて無料でお試しいただけます。
-          App内課金「プレミアム(全機能解放)」(非消耗型・¥720)の購入画面は、次のいずれからも開けます。
+          App内課金「プレミアム(全機能解放)」(非消耗型・¥980)の購入画面は、次のいずれからも開けます。
           1) 「グラフ」タブ →「種目別」を選択 → 表示されるカードをタップ
           2) 「設定」画面(記録タブ右上の歯車) →「プレミアム」→「詳しく見る」
           購入すると、種目別の詳細分析・3本柱の14日推移・メニュー/サプリの無制限登録・バックアップの書き出しが解放されます。
@@ -383,7 +383,7 @@ workflows:
           インターバルタイマーの初回開始時に通知の許可を求めます。画面を消している間にレスト終了を知らせるためのローカル通知のみで、リモート通知は使用していません。
           本アプリはユーザーデータを一切収集しません(記録はすべて端末内にのみ保存)。HealthKitとの連携もありません。"""
           REVIEW_NOTES = '\n'.join(l.strip() for l in REVIEW_NOTES.split('\n'))
-          IAP_NOTE = "非消耗型(¥720)。「グラフ」タブ→「種目別」、または設定画面の「プレミアム」から購入画面を表示できます。購入で種目別分析・3本柱の14日推移・メニュー/サプリの無制限登録・バックアップ書き出しが解放されます。復元ボタンあり。"
+          IAP_NOTE = "非消耗型(¥980)。「グラフ」タブ→「種目別」、または設定画面の「プレミアム」から購入画面を表示できます。購入で種目別分析・3本柱の14日推移・メニュー/サプリの無制限登録・バックアップ書き出しが解放されます。復元ボタンあり。"
 
           # 1) アプリ名・サブタイトル・プライバシーポリシーURL (appInfoLocalizations ja)
           s, d = api('GET', f'/v1/apps/{APP}/appInfos?include=appInfoLocalizations&limit=2')

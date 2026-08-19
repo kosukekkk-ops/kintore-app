@@ -18,7 +18,7 @@
       Plugins: {
         NativePurchases: {
           getPurchases: async () => ({ purchases: [] }),
-          getProduct: async () => ({ product: { priceString: '¥720' } }),
+          getProduct: async () => ({ product: { priceString: '¥980' } }),
           purchaseProduct: async () => ({}),
           restorePurchases: async () => ({}),
         }

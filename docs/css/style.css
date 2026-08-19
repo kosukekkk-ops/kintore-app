@@ -695,3 +695,7 @@ ul.tips li { font-size: 14px; margin-bottom: 5px; line-height: 1.55; }
   background: var(--bg-hi); border: 1px solid var(--accent-2);
 }
 .merge-msg { font-size: 13px; line-height: 1.6; margin: 0 0 10px; }
+
+/* 左右スワイプで日付を送れる領域。横方向のジェスチャをブラウザの
+   「戻る」に取られないよう、縦スクロールだけをブラウザに任せる。 */
+.swipeable { touch-action: pan-y; }

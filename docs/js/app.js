@@ -1299,7 +1299,7 @@
     sessions.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
 
     let h = `<div class="head"><h1>${t('h_history')}</h1></div>`;
-    h += `<div class="card"><div class="cal-head">
+    h += `<div class="card swipeable" data-swipe="hist"><div class="cal-head">
       <button data-act="cal-prev" aria-label="prev">‹</button><div class="m">${Data.fmtMonthYear(y, m)}</div><button data-act="cal-next" aria-label="next">›</button>
     </div><div class="cal-grid">`;
     Data.dow().forEach(d => h += `<div class="dow">${d}</div>`);
@@ -1756,7 +1756,7 @@
     const today = state.cond.viewDate || todayK;
     const tl = Store.getLog(today) || {};
     let h = `<div class="head"><h1>${t('h_condition')}</h1></div>`;
-    h += `<div class="daynav">
+    h += `<div class="daynav swipeable" data-swipe="cond">
       <button class="dn-arrow" data-act="cond-day-shift" data-by="-1" aria-label="${t('day_prev')}">‹</button>
       <input class="dn-date" type="date" data-in="cond-view-date" value="${today}" max="${todayK}">
       <button class="dn-arrow" data-act="cond-day-shift" data-by="1" aria-label="${t('day_next')}" ${today >= todayK ? 'disabled' : ''}>›</button>
@@ -2629,6 +2629,40 @@
   // 二重起動を防ぐ。boot() が2回走ると body のクリック委譲が二重登録され、
   // 1タップで同じ操作が2回実行されてしまう。
   let booted = false;
+  /* ---- 左右スワイプで日付を送る ----
+   * data-swipe を持つ要素の上で横に払うと、その要素の担当する前後へ移動する。
+   * 縦スクロールを奪わないよう、横移動が縦より明確に大きいときだけ成立させる。
+   * preventDefault はしない(スクロールを止めるとページ全体が固まって見える)。 */
+  const SWIPE_MIN = 55;        // これ未満はタップの揺れとみなす
+  const SWIPE_RATIO = 1.6;     // 横が縦のこの倍以上でないとスワイプにしない
+  const SWIPE_MAX_MS = 700;    // ゆっくりなぞったのはスワイプにしない
+  const SWIPE_ACT = {
+    // 左に払う=次へ / 右に払う=前へ(iOSのカレンダーと同じ向き)
+    hist: (dir) => ACTIONS[dir < 0 ? 'cal-next' : 'cal-prev'](),
+    cond: (dir) => ACTIONS['cond-day-shift']({ by: dir < 0 ? '1' : '-1' })
+  };
+  const swipe = { el: null, x: 0, y: 0, t: 0 };
+  function onTouchStart(e) {
+    swipe.el = null;
+    if (!e.touches || e.touches.length !== 1) return;         // 2本指は拡大縮小
+    if ($('.sheet-overlay')) return;                          // シート表示中は触らない
+    const el = e.target.closest('[data-swipe]');
+    if (!el) return;
+    swipe.el = el; swipe.x = e.touches[0].clientX; swipe.y = e.touches[0].clientY; swipe.t = Date.now();
+  }
+  function onTouchEnd(e) {
+    const el = swipe.el; swipe.el = null;
+    if (!el || !e.changedTouches || !e.changedTouches[0]) return;
+    const dx = e.changedTouches[0].clientX - swipe.x;
+    const dy = e.changedTouches[0].clientY - swipe.y;
+    if (Date.now() - swipe.t > SWIPE_MAX_MS) return;
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+    const fn = SWIPE_ACT[el.dataset.swipe];
+    if (!fn) return;
+    Native.tick();     // 送れたことを指に返す
+    fn(dx);
+  }
+
   function boot() {
     if (booted) return;
     booted = true;
@@ -2649,6 +2683,8 @@
     }
     document.body.addEventListener('click', onClick);
     document.body.addEventListener('input', onInput);
+    document.body.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.body.addEventListener('touchend', onTouchEnd, { passive: true });
     $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
     // ソフトキーボード対策(iOS):
     // ボトムシートは画面下端に固定のため、キーボードが出ると入力欄が隠れて
