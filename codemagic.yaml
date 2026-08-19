@@ -799,11 +799,31 @@ workflows:
               except urllib.error.HTTPError as e:
                   return e.code, json.loads(e.read() or b'{}')
 
+          # --- 資格情報の自己診断 ---------------------------------------
+          # 401のとき、3つのうちどれが怪しいかログから切り分けられるようにする。
+          # 値そのものはCodemagicがマスクするので、形だけを出す。
+          import re
+          kid = os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'].strip()
+          iss = os.environ['APP_STORE_CONNECT_ISSUER_ID'].strip()
+          pk = os.environ['APP_STORE_CONNECT_PRIVATE_KEY']
+          print('DIAG key_id length:', len(kid), '(Appleの Key ID は通常10文字)')
+          print('DIAG issuer_id length:', len(iss),
+                '/ UUID形式:', bool(re.fullmatch(r'[0-9a-fA-F-]{36}', iss)),
+                '(通常は 36文字のUUID)')
+          print('DIAG private_key starts with BEGIN:', pk.strip().startswith('-----BEGIN'),
+                '/ 行数:', len(pk.strip().splitlines()), '(.p8 は通常5行前後)')
+
           bid = os.environ['BUNDLE_ID'].strip()
           s, d = api('/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
+          if s == 401:
+              print('AUTH FAILED (401): Issuer ID / Key ID / .p8 のいずれかが不一致です。')
+              print('  - App Store Connect > ユーザーとアクセス > 統合 で Issuer ID と Key ID を照合')
+              print('  - そのキーが Active か、Team key(個人キーではない)かも確認')
+              print(json.dumps(d)[:300])
+              raise SystemExit(1)
           if not (s == 200 and d.get('data')):
               # 0で抜けるとCodemagicが緑の成功表示になり、見落とす。異常は落として気づかせる。
-              print('APP not found for bundleId', bid, '->', s, json.dumps(d)[:200])
+              print('APP not found for bundleId', bid, '->', s, json.dumps(d)[:300])
               raise SystemExit(1)
           APP = d['data'][0]['id']
           print('APP', APP, d['data'][0]['attributes'].get('name'), flush=True)
