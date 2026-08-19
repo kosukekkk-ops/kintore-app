@@ -802,7 +802,9 @@ workflows:
           bid = os.environ['BUNDLE_ID'].strip()
           s, d = api('/v1/apps?filter[bundleId]=' + urllib.parse.quote(bid) + '&limit=1')
           if not (s == 200 and d.get('data')):
-              print('APP not found for bundleId', bid, '->', s, json.dumps(d)[:200]); raise SystemExit(0)
+              # 0で抜けるとCodemagicが緑の成功表示になり、見落とす。異常は落として気づかせる。
+              print('APP not found for bundleId', bid, '->', s, json.dumps(d)[:200])
+              raise SystemExit(1)
           APP = d['data'][0]['id']
           print('APP', APP, d['data'][0]['attributes'].get('name'), flush=True)
 
