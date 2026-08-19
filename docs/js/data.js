@@ -359,6 +359,12 @@ const Data = (() => {
       ex_manage_title: '種目の管理', ex_group_custom: '自分で追加した種目', ex_group_seed: '最初から入っている種目',
       ex_manage_hint: '名前や部位を間違えて登録しても、あとから直せます。部位を変えると過去の記録の部位別集計もまとめて直ります。',
       ex_used_n: '記録・メニューで{n}回使用', no_hit: '見つかりませんでした',
+      /* ---- 同名の種目が2つあるときの統合 ---- */
+      ex_twin_msg: '同じ名前の種目がもう1つあります（{p}）。このままだと一覧に2つ並び、記録も分かれてしまいます。',
+      ex_merge_btn: '「{p}」の方にまとめる',
+      ex_merge_confirm: '「{n}」の記録{c}件を、もう一方（{p}）に移してこの種目を削除します。よろしいですか？',
+      ex_merged: '種目をまとめました（記録{c}件を移動）',
+      ex_dup_edit: 'その名前は別の種目が使っています（{p}）。違う名前にしてください。',
       pick_day: '', // (日付見出しはfmtDate)
       version: 'トレログ v1.0'
     },
@@ -510,6 +516,11 @@ const Data = (() => {
       ex_manage_title: 'Manage exercises', ex_group_custom: 'Your exercises', ex_group_seed: 'Built-in exercises',
       ex_manage_hint: 'Fix a wrong name or muscle group any time. Changing the muscle group also fixes volume-by-muscle for past records.',
       ex_used_n: 'Used {n} times', no_hit: 'No matches',
+      ex_twin_msg: 'Another exercise has the same name ({p}). Leaving both means two entries in the list and records split between them.',
+      ex_merge_btn: 'Merge into the {p} one',
+      ex_merge_confirm: 'Move {c} records from this exercise into the other one ({p}) and delete this one. Are you sure?',
+      ex_merged: 'Merged ({c} records moved)',
+      ex_dup_edit: 'Another exercise already uses that name ({p}). Choose a different name.',
       pick_day: '',
       version: 'ToreLog v1.0'
     }

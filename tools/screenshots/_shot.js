@@ -155,6 +155,24 @@
         if (!click('[data-act="ex-edit"]')) throw new Error('編集ボタンが見つからない');
         await wait(320);
       },
+      // 目視確認用: 重複した種目の編集シート(まとめる案内＋インラインのエラー)
+      async exdup() {
+        const ex = JSON.parse(localStorage.getItem(P + 'exercises'));
+        ex.push({ id: 'dupmine', name: 'シュラッグ', muscle: 'chest', custom: true, order: ex.length });
+        localStorage.setItem(P + 'exercises', JSON.stringify(ex));
+        const ss = JSON.parse(localStorage.getItem(P + 'sessions'));
+        ss[1].exercises.push({ id: 'wdup', exerciseId: 'dupmine', note: '', sets: sets(4, 25, 30, true) });
+        localStorage.setItem(P + 'sessions', JSON.stringify(ss));
+        click('[data-act="open-settings"]'); await wait(200);
+        click('[data-act="ex-manage"]'); await wait(250);
+        if (!click('[data-act="ex-edit"][data-id="dupmine"]')) throw new Error('重複種目が見つからない');
+        await wait(300);
+        // 名前を既存とぶつけてインラインのエラーも出す
+        const inp = $('[data-in="exeditname"]');
+        inp.value = 'ベンチプレス';
+        click('[data-act="save-exedit"]');
+        await wait(250);
+      },
       // 目視確認用: 設定 → 種目の管理
       async exmanage() {
         click('[data-act="open-settings"]'); await wait(200);

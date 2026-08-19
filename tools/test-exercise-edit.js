@@ -145,7 +145,8 @@ console.log('\n[4] 名前の変更と重複チェック');
   a.type('[data-in="exeditname"]', 'ベンチプレス');   // 既存のシード名にぶつける
   a.click('[data-act="save-exedit"]');
   ok(a.exs().find(e => e.id === 'w2').name === 'マイ種目', '既存名への変更はブロックされる');
-  ok(/既にあります/.test(a.toastText()), '理由が出る', a.toastText());
+  const e4 = a.$('#exedit-err');
+  ok(e4 && !e4.hidden && /別の種目が使っています/.test(e4.textContent), '理由がシート内に出る', e4 && e4.textContent);
   a.type('[data-in="exeditname"]', 'マイ種目2');
   a.click('[data-act="save-exedit"]');
   ok(a.exs().find(e => e.id === 'w2').name === 'マイ種目2', '別名なら変更できる');
@@ -311,6 +312,74 @@ console.log('[12] 新規インストール');
   const s = a.exs().find(e => e.name === 'シュラッグ');
   ok(s && s.muscle === 'back', '最初からシュラッグは背中', s && s.muscle);
   ok(a.exs().filter(e => e.name === 'シュラッグ').length === 1, '重複していない');
+}
+
+/* ---------- 13. 同名の重複があっても部位は直せる（今回の詰み） ---------- */
+console.log('');
+console.log('[13] 同名の重複があっても部位を直せる');
+{
+  const a = boot();
+  // 初期種目のシュラッグ(背中)がある状態で、自作の「シュラッグ」(胸)を持っている端末
+  const list = a.exs();
+  list.push({ id: 'mine', name: 'シュラッグ', muscle: 'chest', custom: true, order: list.length });
+  a.w.localStorage.setItem('kintore:exercises', JSON.stringify(list));
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="open-settings"]');
+  a.click('[data-act="ex-manage"]');
+  a.click('[data-act="ex-edit"][data-id="mine"]');
+  ok(!!a.$('[data-in="exeditname"]'), '編集シートが開く');
+  // 名前は触らず部位だけ背中に変えて保存
+  a.click('.chips [data-act="exedit-muscle"][data-key="back"]');
+  a.click('[data-act="save-exedit"]');
+  const after = a.exs().find(e => e.id === 'mine');
+  ok(after && after.muscle === 'back', '名前が重複していても部位を保存できる', after && after.muscle);
+}
+
+/* ---------- 14. 名前を既存名に変えるのは今も止める ---------- */
+console.log('');
+console.log('[14] 名前を他の種目とぶつけるのは止める');
+{
+  const a = boot();
+  const list = a.exs();
+  list.push({ id: 'mine2', name: 'マイ種目', muscle: 'arm', custom: true, order: list.length });
+  a.w.localStorage.setItem('kintore:exercises', JSON.stringify(list));
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="open-settings"]');
+  a.click('[data-act="ex-manage"]');
+  a.click('[data-act="ex-edit"][data-id="mine2"]');
+  a.type('[data-in="exeditname"]', 'ベンチプレス');
+  a.click('[data-act="save-exedit"]');
+  ok(a.exs().find(e => e.id === 'mine2').name === 'マイ種目', '既存名への変更はブロックされる');
+  const errEl = a.$('#exedit-err');
+  ok(errEl && !errEl.hidden && /別の種目が使っています/.test(errEl.textContent), 'エラーはシート内に出る(トーストではない)', errEl && errEl.textContent);
+}
+
+/* ---------- 15. 重複を1つにまとめられる ---------- */
+console.log('');
+console.log('[15] 重複した種目をまとめる');
+{
+  const a = boot();
+  const list = a.exs();
+  const seedShrug = list.find(e => e.name === 'シュラッグ');
+  list.push({ id: 'mine3', name: 'シュラッグ', muscle: 'chest', custom: true, order: list.length });
+  a.w.localStorage.setItem('kintore:exercises', JSON.stringify(list));
+  a.w.localStorage.setItem('kintore:sessions', JSON.stringify([{
+    id: 'sm', date: K(1), name: '背中の日', startedAt: K(1) + 'T19:00', finishedAt: K(1) + 'T20:00', done: true,
+    exercises: [{ id: 'we', exerciseId: 'mine3', sets: [{ id: 's', weight: 25, reps: 30, warmup: false, done: true }] }]
+  }]));
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="open-settings"]');
+  a.click('[data-act="ex-manage"]');
+  a.click('[data-act="ex-edit"][data-id="mine3"]');
+  const sheetTxt = a.$$('.sheet-overlay').slice(-1)[0].textContent;
+  ok(/同じ名前の種目がもう1つあります/.test(sheetTxt), '重複していることを知らせる', sheetTxt.slice(0, 60));
+  ok(!!a.$('[data-act="merge-exercise"]'), 'まとめるボタンが出る');
+  a.click('[data-act="merge-exercise"]');
+  a.click('[data-act="confirm-ok"]');
+  ok(!a.exs().find(e => e.id === 'mine3'), '重複した方が消える');
+  ok(a.exs().filter(e => e.name === 'シュラッグ').length === 1, 'シュラッグが1つになる');
+  const ss = JSON.parse(a.w.localStorage.getItem('kintore:sessions'));
+  ok(ss[0].exercises[0].exerciseId === seedShrug.id, '記録は残った方に付け替わる');
 }
 
 console.log(`\n=== ${pass} passed / ${fail} failed ===`);

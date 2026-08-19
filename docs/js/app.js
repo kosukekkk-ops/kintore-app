@@ -1037,16 +1037,29 @@
    * exerciseId は据え置きで属性だけ差し替えるので、過去の記録も正しい部位に直る。
    * 「作るときに部位を間違えたら直せない」状態を解消するための画面。 */
   let exEditId = null, exEditMuscle = null;
+  // 同じ名前の別種目(重複)。初期種目と同名のカスタムを作ってしまったときに出る。
+  function twinOf(exId) {
+    const ex = Store.exerciseById(exId); if (!ex) return null;
+    return Store.getExercises().find(e => e.id !== exId && e.name.trim() === ex.name.trim()) || null;
+  }
   function openExerciseEdit(exId) {
     const ex = Store.exerciseById(exId); if (!ex) return;
     exEditId = exId; exEditMuscle = ex.muscle;
     const used = exerciseUseCount(exId);
-    showSheet(`${sheetHead('exedit-back', t('back'))}<h2>${t('ex_edit_title')}</h2>
+    const twin = twinOf(exId);
+    // 重複があると、片方を直しても一覧に同じ名前が2つ並んだままになる。
+    // 記録を移して1つにまとめられるようにする。
+    const mergeBox = twin ? `<div class="merge-box">
+        <p class="merge-msg">${t('ex_twin_msg', { p: Data.muscleName(twin.muscle) })}</p>
+        <button class="btn secondary" data-act="merge-exercise" data-from="${exId}" data-to="${twin.id}">${t('ex_merge_btn', { p: Data.muscleName(twin.muscle) })}</button>
+      </div>` : '';
+    showSheet(`${sheetHead('exedit-back', t('back'))}<h2>${t('ex_edit_title')}</h2>${mergeBox}
       <label class="field"><span class="lab">${t('ex_name')}</span><input data-in="exeditname" value="${esc(ex.name)}"></label>
       <label class="field"><span class="lab">${t('part')}</span>
         <div class="chips">${Data.MUSCLES.map(m => `<div class="chip ${m.key === ex.muscle ? 'active' : ''}" data-act="exedit-muscle" data-key="${m.key}">${Data.muscleName(m.key)}</div>`).join('')}</div>
       </label>
       <p class="muted small">${used ? t('ex_edit_used', { n: used }) : t('ex_edit_unused')}</p>
+      <p class="field-err" id="exedit-err" hidden></p>
       <button class="btn mb" data-act="save-exedit">${t('save')}</button>
       ${used ? '' : `<button class="btn danger" data-act="del-exercise" data-id="${exId}">${t('ex_delete')}</button>`}`, { stack: true });
   }
@@ -2108,15 +2121,36 @@
     'exedit-muscle': (d, el) => { $$('.chip', el.parentElement).forEach(c => c.classList.remove('active')); el.classList.add('active'); exEditMuscle = d.key; },
     'exedit-back': () => { const o = $$('.sheet-overlay'); if (o.length > 1) removeSheet(o[o.length - 1]); else closeSheet(); },
     'save-exedit': () => {
+      const cur = Store.exerciseById(exEditId);
       const name = (($('[data-in="exeditname"]') || {}).value || '').trim();
-      if (!name) { toast(t('need_name')); return; }
-      if (!exEditMuscle) { toast(t('need_part')); return; }
-      const dup = Store.getExercises().find(e => e.id !== exEditId && e.name.trim() === name);
-      if (dup) { toast(t('ex_dup', { p: Data.muscleName(dup.muscle) })); return; }
+      const err = (msg) => { const el = $('#exedit-err'); if (el) { el.textContent = msg; el.hidden = false; } else toast(msg); };
+      if (!name) { err(t('need_name')); return; }
+      if (!exEditMuscle) { err(t('need_part')); return; }
+      // 名前を変えていないなら重複チェックはしない。既に同名が存在する種目でも
+      // 部位だけは直せる必要がある(でないと重複した瞬間に修正不能になる)。
+      const renamed = !cur || name !== cur.name.trim();
+      const dup = renamed ? Store.getExercises().find(e => e.id !== exEditId && e.name.trim() === name) : null;
+      if (dup) { err(t('ex_dup_edit', { p: Data.muscleName(dup.muscle) })); return; }
       // edited を立てておくと、以後シード側で分類を訂正しても上書きされない。
       // 「自分の分け方に直した」というユーザーの意思をアプリ側の都合より優先する。
       Store.updateExercise(exEditId, { name, muscle: exEditMuscle, edited: true });
       closeSheet(); render(); toast(t('ex_updated'));
+    },
+    'merge-exercise': (d) => {
+      const from = Store.exerciseById(d.from), to = Store.exerciseById(d.to);
+      if (!from || !to) return;
+      const n = exerciseUseCount(d.from);
+      confirmSheet(t('ex_merge_confirm', { n: from.name, p: Data.muscleName(to.muscle), c: n }), () => {
+        // 記録・メニューの参照を付け替えてから、空になった方を消す
+        const ss = Store.getSessions();
+        ss.forEach(s => (s.exercises || []).forEach(we => { if (we.exerciseId === d.from) we.exerciseId = d.to; }));
+        Store.setSessions(ss);
+        const tp = Store.getTemplates();
+        tp.forEach(x => (x.exercises || []).forEach(te => { if (te.exerciseId === d.from) te.exerciseId = d.to; }));
+        Store.setTemplates(tp);
+        Store.deleteExercise(d.from);
+        closeSheet(); render(); toast(t('ex_merged', { c: n }));
+      });
     },
     'del-exercise': (d) => {
       if (exerciseUseCount(d.id)) { toast(t('ex_del_used')); return; }
