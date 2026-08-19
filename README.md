@@ -112,6 +112,17 @@ IAP を提出物に含め忘れるとガイドライン 2.1(b) で差し戻さ�
 3. `ios-release` を流す
 4. `release-submit` の `NEW_VERSION` と `WHATS_NEW` を設定して流す
 
+### リリース前チェック
+
+```bash
+node tools/check-codemagic.js
+```
+
+codemagic.yaml を触ったら push する前に流す。CodemagicはYAMLとして正しくても
+スキーマ検証で弾くことがあり(例: 環境変数の空文字は "at least 1 characters" で
+落ちる)、それは画面に貼るまで気づけない。識別子の食い違いや、Windowsで
+cap sync した際に Package.swift のパスが  区切りになる件もここで捕まえる。
+
 ### ストア素材の作り直し
 
 ```bash

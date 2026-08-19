@@ -630,7 +630,9 @@ workflows:
         BUNDLE_ID: "io.github.kosukekkkops.torelog"
         PRODUCT_ID: "io.github.kosukekkkops.torelog.premium"
         NEW_VERSION: "1.0"
-        WHATS_NEW: ""       # 1.0では未使用。次バージョン以降に更新内容を書く
+        # 「このバージョンの新機能」は2回目以降のリリースで使う。必要になったら
+        # ここに WHATS_NEW: "..." を足すか、Codemagicの実行画面で一時変数として渡す。
+        # ※空文字("")は置かないこと。Codemagicの環境変数は1文字以上が必須で検証に落ちる。
     scripts:
       - name: Create/reuse version, attach latest build, submit with IAP
         script: |
