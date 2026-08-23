@@ -365,6 +365,8 @@ const Data = (() => {
       ex_merge_confirm: '「{n}」の記録{c}件を、もう一方（{p}）に移してこの種目を削除します。よろしいですか？',
       ex_merged: '種目をまとめました（記録{c}件を移動）',
       ex_dup_edit: 'その名前は別の種目が使っています（{p}）。違う名前にしてください。',
+      hist_newest: 'これが最新の記録です', hist_oldest: 'これが最初の記録です',
+      cond_no_future: '今日より先には進めません',
       pick_day: '', // (日付見出しはfmtDate)
       version: 'トレログ v1.0'
     },
@@ -521,6 +523,8 @@ const Data = (() => {
       ex_merge_confirm: 'Move {c} records from this exercise into the other one ({p}) and delete this one. Are you sure?',
       ex_merged: 'Merged ({c} records moved)',
       ex_dup_edit: 'Another exercise already uses that name ({p}). Choose a different name.',
+      hist_newest: 'This is the latest workout', hist_oldest: 'This is the oldest workout',
+      cond_no_future: 'Cannot go past today',
       pick_day: '',
       version: 'ToreLog v1.0'
     }

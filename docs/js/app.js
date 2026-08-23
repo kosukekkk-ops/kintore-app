@@ -1344,6 +1344,7 @@
     const vol = Data.sessionVolumeKg(s);
     let h = `<button class="back-btn" data-act="hist-back">‹ ${t('h_history')}</button>`;
     h += `<div class="head"><h1 style="font-size:18px">${esc(s.name || Data.fmtDate(s.date))}</h1></div>`;
+    h += `<div class="swipeable" data-swipe="histdetail">`;
     h += `<div class="tiles">
       <div class="tile"><div class="n">${s.exercises.length}</div><div class="l">${t('col_exercises')}</div></div>
       <div class="tile"><div class="n">${Data.sessionSetCount(s)}</div><div class="l">${t('col_sets2')}</div></div>
@@ -1365,9 +1366,38 @@
     });
     if (s.note) h += `<div class="hr"></div><div class="small">${esc(s.note)}</div>`;
     h += `</div>`;
+    h += `</div>`;   // swipeable
     h += `<div class="row"><button class="btn secondary" data-act="edit-session" data-id="${s.id}">${t('edit_resume')}</button>
       <button class="btn danger" data-act="del-session" data-id="${s.id}">${t('delete')}</button></div>`;
     return h;
+  }
+
+  /* 履歴詳細で前後の記録へ移る。dir>0 で新しい方へ。
+   * 空の日には行かない(表示するものが無く、送った手応えも得られないため)。 */
+  function shiftSessionDetail(dir) {
+    const list = Store.getSessions().filter(x => x.done)
+      .sort((a, b) => (a.date + (a.startedAt || '')).localeCompare(b.date + (b.startedAt || '')));
+    const i = list.findIndex(x => x.id === state.hist.sessionId);
+    if (i < 0) return;
+    const j = i + (dir > 0 ? 1 : -1);
+    if (j < 0) { toast(t('hist_oldest')); return; }
+    if (j >= list.length) { toast(t('hist_newest')); return; }
+    state.hist.sessionId = list[j].id;
+    Native.tick();
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  /* 体調タブの日送り。今日より先には行かない。 */
+  function shiftCondDay(dir) {
+    const base = state.cond.viewDate || Data.todayKey();
+    const x = new Date(base + 'T00:00:00');
+    x.setDate(x.getDate() + (dir > 0 ? 1 : -1));
+    const next = Data.dateKey(x);
+    if (next > Data.todayKey()) { toast(t('cond_no_future')); return; }
+    state.cond.viewDate = next;
+    Native.tick();
+    render();
   }
 
   /* ============ グラフタブ ============ */
@@ -2256,13 +2286,7 @@
 
     'supp-toggle': (d) => { Store.toggleSuppTaken(d.date || Data.todayKey(), d.key); render(); },
     // 体調タブの日付切り替え(今日より先には進めない)
-    'cond-day-shift': (d) => {
-      const base = state.cond.viewDate || Data.todayKey();
-      const x = new Date(base + 'T00:00:00'); x.setDate(x.getDate() + (+d.by));
-      const next = Data.dateKey(x);
-      if (next > Data.todayKey()) return;
-      state.cond.viewDate = next; render();
-    },
+    'cond-day-shift': (d) => shiftCondDay(+d.by),
     'cond-day-today': () => { state.cond.viewDate = Data.todayKey(); render(); },
     'cond-view-set': (d) => { state.cond.viewDate = d.date; render(); window.scrollTo(0, 0); },
     'supps-manage': () => { state.cond.screen = 'supps'; switchTab('condition'); },
@@ -2636,10 +2660,13 @@
   const SWIPE_MIN = 55;        // これ未満はタップの揺れとみなす
   const SWIPE_RATIO = 1.6;     // 横が縦のこの倍以上でないとスワイプにしない
   const SWIPE_MAX_MS = 700;    // ゆっくりなぞったのはスワイプにしない
+  // 向きはアプリ全体で統一する: 右に払う=次(新しい方へ) / 左に払う=前(古い方へ)。
+  // 混在すると同じ指の動きで逆に進むことになり、必ず操作を間違える。
+  // 動かなかったとき(端に着いたとき)は触覚を返さない。指に「進んだ」と嘘をつかないため。
   const SWIPE_ACT = {
-    // 左に払う=次へ / 右に払う=前へ(iOSのカレンダーと同じ向き)
-    hist: (dir) => ACTIONS[dir < 0 ? 'cal-next' : 'cal-prev'](),
-    cond: (dir) => ACTIONS['cond-day-shift']({ by: dir < 0 ? '1' : '-1' })
+    hist: (dir) => { ACTIONS[dir > 0 ? 'cal-next' : 'cal-prev'](); Native.tick(); },
+    histdetail: (dir) => shiftSessionDetail(dir),
+    cond: (dir) => shiftCondDay(dir)
   };
   const swipe = { el: null, x: 0, y: 0, t: 0 };
   function onTouchStart(e) {
@@ -2659,7 +2686,6 @@
     if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
     const fn = SWIPE_ACT[el.dataset.swipe];
     if (!fn) return;
-    Native.tick();     // 送れたことを指に返す
     fn(dx);
   }
 
