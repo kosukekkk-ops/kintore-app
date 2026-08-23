@@ -2684,14 +2684,15 @@
   const SWIPE_MIN = 55;        // これ未満はタップの揺れとみなす
   const SWIPE_RATIO = 1.6;     // 横が縦のこの倍以上でないとスワイプにしない
   const SWIPE_MAX_MS = 700;    // ゆっくりなぞったのはスワイプにしない
-  // 向きはアプリ全体で統一する: 右に払う=次(新しい方へ) / 左に払う=前(古い方へ)。
-  // ユーザー指定の向き。iOSのカレンダーとは逆だが、本人が実機で確かめて決めた。
+  // 向きはアプリ全体で統一する: 左に払う=次(新しい方へ) / 右に払う=前(古い方へ)。
+  // 「ページをめくる」感覚で、iOSのカレンダー等の標準と同じ向き。
+  // 何往復かしたが、本人が実機で確かめてこの向きに確定した。
   // 混在すると同じ指の動きで逆に進むことになり、必ず操作を間違える。
   // 動かなかったとき(端に着いたとき)は触覚を返さない。指に「進んだ」と嘘をつかないため。
   const SWIPE_ACT = {
-    hist: (dir) => { ACTIONS[dir > 0 ? 'cal-next' : 'cal-prev'](); Native.tick(); },
-    histdetail: (dir) => shiftSessionDetail(dir),
-    cond: (dir) => shiftCondDay(dir)
+    hist: (dir) => { ACTIONS[dir < 0 ? 'cal-next' : 'cal-prev'](); Native.tick(); },
+    histdetail: (dir) => shiftSessionDetail(-dir),
+    cond: (dir) => shiftCondDay(-dir)
   };
   const swipe = { el: null, x: 0, y: 0, t: 0 };
   function onTouchStart(e) {
