@@ -185,7 +185,7 @@ console.log('[7] 履歴の詳細を左右スワイプ');
     exercises: [{ id: 'we' + id, exerciseId: 'x', sets: [{ id: 's' + id, weight: 10, reps: 10, warmup: false, done: true }] }] });
   a.w.localStorage.setItem('kintore:sessions', JSON.stringify([mk('sA', 4), mk('sB', 2), mk('sC', 0)]));
   a.click('.tabbar button[data-tab="history"]');
-  a.click('[data-act="open-session"][data-id="sB"]');
+  a.click('.cal-cell[data-date="' + K(2) + '"]');   // sB の日をカレンダーから開く
   ok(!!a.$('[data-swipe="histdetail"]'), '詳細画面がスワイプ対象になっている');
   const title = () => (a.$('#view-history .head h1') || {}).textContent || '';
   ok(/sB/.test(title()), '真ん中の記録を開いている', title());

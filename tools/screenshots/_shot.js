@@ -131,6 +131,22 @@
         if (!click('[data-act="rest-start"]')) throw new Error('インターバル開始ボタンが見つからない');
         await wait(400);
       },
+      // 目視確認用: 履歴カレンダー(部位ドット)。複数部位の日と有酸素の日を含める
+      async histcal() {
+        const ss = JSON.parse(localStorage.getItem(P + 'sessions'));
+        // 背中+腕の日(量は背中が上)、有酸素だけの日、脚+体幹の日 を足す
+        ss.push({ id: 'hc1', date: K(8), name: '', startedAt: K(8) + 'T19:00:00.000Z', finishedAt: K(8) + 'T20:00:00.000Z', done: true,
+          exercises: [{ id: 'a1', exerciseId: byName('アームカール'), note: '', sets: sets(3, 15, 12, true) },
+                      { id: 'a2', exerciseId: byName('ラットプルダウン'), note: '', sets: sets(4, 60, 10, true) }] });
+        ss.push({ id: 'hc2', date: K(9), name: '', startedAt: K(9) + 'T19:00:00.000Z', finishedAt: K(9) + 'T20:00:00.000Z', done: true,
+          exercises: [{ id: 'a3', exerciseId: byName('トレッドミル'), note: '', sets: [{ id: 'cz', duration: 30, distance: 5, done: true }] }] });
+        ss.push({ id: 'hc3', date: K(11), name: '', startedAt: K(11) + 'T19:00:00.000Z', finishedAt: K(11) + 'T20:00:00.000Z', done: true,
+          exercises: [{ id: 'a4', exerciseId: byName('スクワット'), note: '', sets: sets(4, 90, 8, true) },
+                      { id: 'a5', exerciseId: byName('プランク'), note: '', sets: sets(3, 0, 1, true) },
+                      { id: 'a6', exerciseId: byName('サイドレイズ'), note: '', sets: sets(3, 10, 15, true) }] });
+        localStorage.setItem(P + 'sessions', JSON.stringify(ss));
+        tab('history'); await wait(300);
+      },
       // 体調: 睡眠・食事・サプリのチェックリスト
       async cond() { tab('condition'); },
       // グラフ: 3本柱のバランス

@@ -240,7 +240,8 @@ console.log('[8] 履歴の詳細画面から直せる');
     exercises: [{ id: 'we', exerciseId: 'hx1', sets: [{ id: 's', weight: 25, reps: 30, warmup: false, done: true }] }]
   }]));
   a.click('.tabbar button[data-tab="history"]');
-  a.click('[data-act="open-session"][data-id="sh"]');
+  // 「すべての記録」リストは廃止したので、実際の導線と同じくカレンダーの日をタップして開く
+  a.click('.cal-cell[data-date="' + K(1) + '"]');
   const det = a.$('#view-history').textContent;
   ok(/シュラッグ自作/.test(det), '履歴の詳細が開く');
   ok(/胸/.test(det), '(修正前)胸と表示されている');
@@ -380,6 +381,45 @@ console.log('[15] 重複した種目をまとめる');
   ok(a.exs().filter(e => e.name === 'シュラッグ').length === 1, 'シュラッグが1つになる');
   const ss = JSON.parse(a.w.localStorage.getItem('kintore:sessions'));
   ok(ss[0].exercises[0].exerciseId === seedShrug.id, '記録は残った方に付け替わる');
+}
+
+/* ---------- 16. カレンダーのドットが部位カラーになっていること ---------- */
+console.log('');
+console.log('[16] カレンダーの部位ドット');
+{
+  const a = boot();
+  const ex = a.exs();
+  const id = (n) => ex.find(e => e.name === n).id;
+  const set = (w, r) => ({ id: 'x' + w + r, weight: w, reps: r, warmup: false, done: true });
+  const day = K(1);
+  a.w.localStorage.setItem('kintore:sessions', JSON.stringify([
+    // 背中 7000kg > 腕 1200kg の日。記録順は腕→背中にして、量順に並ぶことを確認する
+    { id: 'd1', date: day, name: '', startedAt: day + 'T19:00', finishedAt: day + 'T20:00', done: true,
+      exercises: [
+        { id: 'w1', exerciseId: id('アームカール'), sets: [set(20, 20), set(20, 20), set(20, 20)] },
+        { id: 'w2', exerciseId: id('デッドリフト'), sets: [set(100, 10), set(100, 10), set(100, 10), set(100, 10), set(100, 10), set(100, 10), set(100, 10)] }
+      ] },
+    // 有酸素だけの日
+    { id: 'd2', date: K(2), name: '', startedAt: K(2) + 'T19:00', finishedAt: K(2) + 'T20:00', done: true,
+      exercises: [{ id: 'w3', exerciseId: id('トレッドミル'), sets: [{ id: 'c', duration: 30, distance: 5, done: true }] }] },
+  ]));
+  a.click('.tabbar button[data-tab="history"]');
+  const cell = a.$('.cal-cell[data-date="' + day + '"]');
+  ok(!!cell, '記録のある日のセルがある');
+  const dots = Array.from(cell.querySelectorAll('.mk i')).map(i => i.getAttribute('style') || '');
+  ok(dots.length === 2, 'やった部位の数だけドットが出る', String(dots.length));
+  ok(/--m-back/.test(dots[0]), '1つ目はボリュームの大きい背中', dots[0]);
+  ok(/--m-arm/.test(dots[1]), '2つ目は腕(記録順ではなく量順)', dots[1]);
+  ok(!dots.some(d => d === ''), '白の無色ドットは残っていない');
+  const cardio = a.$('.cal-cell[data-date="' + K(2) + '"] .mk i');
+  ok(cardio && /--m-cardio/.test(cardio.getAttribute('style')), '有酸素だけの日も有酸素色で出る');
+  const leg = a.$('.cal-legend');
+  ok(!!leg, '凡例がある');
+  ok(/背中/.test(leg.textContent) && /腕/.test(leg.textContent) && /有酸素/.test(leg.textContent), 'その月に出た部位が凡例にある');
+  ok(!/胸/.test(leg.textContent), 'やっていない部位は凡例に出ない');
+  ok(!/すべての記録/.test(a.$('#view-history').textContent), '「すべての記録」リストは無くなっている');
+  a.click('.cal-cell[data-date="' + day + '"]');
+  ok(!!a.$('.sheet-overlay') || /デッドリフト/.test(a.$('#view-history').textContent), '日をタップすれば記録に辿り着ける');
 }
 
 console.log(`\n=== ${pass} passed / ${fail} failed ===`);

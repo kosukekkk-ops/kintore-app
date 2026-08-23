@@ -31,7 +31,7 @@
   --m-shoulder: #ff9f43;
   --m-arm: #a78bfa;
   --m-abs: #38d6c8;
-  --m-cardio: #ff7a45;
+  --m-cardio: #5aa9ff;   /* 有酸素は筋肉でないので、暖色の部位色から離した青にする */
   --fig: #cdd3c6;        /* 動作イラストの人物色 */
   --font-num: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -699,3 +699,9 @@ ul.tips li { font-size: 14px; margin-bottom: 5px; line-height: 1.55; }
 /* 左右スワイプで日付を送れる領域。横方向のジェスチャをブラウザの
    「戻る」に取られないよう、縦スクロールだけをブラウザに任せる。 */
 .swipeable { touch-action: pan-y; }
+
+/* カレンダーの部位ドット: 背景色は各セルで部位カラーに差し替える */
+.cal-cell .mk i { width: 5px; height: 5px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border2); font-size: 11px; color: var(--text-dim); }
+.cal-legend span { display: flex; align-items: center; gap: 5px; }
+.cal-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }

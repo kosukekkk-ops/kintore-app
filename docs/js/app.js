@@ -312,7 +312,7 @@
       const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const has = byDate[key];
       const cls = has ? 'has' : (isRestDay(key) ? 'rest' : (key === todayK ? 'today' : ''));
-      const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
+      const marks = has ? `<span class="mk">${dayMuscles(has).slice(0, 3).map(k => `<i style="background:var(--${Data.muscleMap[k].cls})"></i>`).join('')}</span>` : '';
       // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
       h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
     }
@@ -1311,11 +1311,19 @@
       const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const has = byDate[key];
       const cls = has ? 'has' : (isRestDay(key) ? 'rest' : (key === todayK ? 'today' : ''));
-      const marks = has ? `<span class="mk">${has.slice(0, 3).map(() => '<i></i>').join('')}</span>` : '';
+      const marks = has ? `<span class="mk">${dayMuscles(has).slice(0, 3).map(k => `<i style="background:var(--${Data.muscleMap[k].cls})"></i>`).join('')}</span>` : '';
       // 実施日が無い日もタップ可(記録し忘れた日をあとから追加するため)
       h += `<div class="cal-cell ${cls}" data-act="cal-day" data-date="${key}">${d}${marks}</div>`;
     }
-    h += `</div></div>`;
+    h += `</div>`;
+    // 凡例はその月に出てきた部位だけ。7色を常に並べると説明のための説明になる。
+    const seen = new Set();
+    Object.keys(byDate).forEach(k => { if (k.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)) dayMuscles(byDate[k]).forEach(x => seen.add(x)); });
+    if (seen.size) {
+      h += `<div class="cal-legend">${Data.MUSCLES.filter(mm => seen.has(mm.key)).map(mm =>
+        `<span><i style="background:var(--${mm.cls})"></i>${Data.muscleName(mm.key)}</span>`).join('')}</div>`;
+    }
+    h += `</div>`;
 
     // 未完了(進行中)のワークアウトも必ず一覧に出す。完了だけを表示していると、
     // 保存し忘れたセッションがどこからも開けなくなるため。
@@ -1331,11 +1339,27 @@
       h += `</div>`;
     }
 
-    const sorted = sessions.slice().sort((a, b) => b.date.localeCompare(a.date) || (b.startedAt || '').localeCompare(a.startedAt || ''));
-    h += `<div class="card"><h2>${t('all_records', { n: sorted.length })}</h2>`;
-    h += sorted.length ? sorted.map(s => sessionRow(s)).join('') : `<p class="muted small">${t('history_empty')}</p>`;
-    h += `</div>`;
+    // 「すべての記録」の一覧は廃止。カレンダーの日をタップすれば同じ所へ行けるうえ、
+    // 実際に使うと下へ延々伸びるだけで見なかった。記録が1件も無いときだけ案内を出す。
+    if (!sessions.length) h += `<p class="muted small center" style="margin-top:8px">${t('history_empty')}</p>`;
     return h;
+  }
+
+  /* その日にやった部位を、ボリュームの大きい順に返す(重複なし)。
+   * 記録順だと主目的の部位が2番目に来ることがあるため、量で並べる。
+   * 有酸素はボリュームが0になるので、存在した事実だけで最後に加える。 */
+  function dayMuscles(sessions) {
+    const vol = {};
+    let cardio = false;
+    sessions.forEach(s => (s.exercises || []).forEach(we => {
+      const ex = Store.exerciseById(we.exerciseId); if (!ex) return;
+      if (Data.isCardioMuscle(ex.muscle)) { cardio = true; return; }
+      let v = 0; (we.sets || []).forEach(set => { if (!set.warmup) v += (set.weight || 0) * (set.reps || 0); });
+      vol[ex.muscle] = (vol[ex.muscle] || 0) + v;
+    }));
+    const keys = Object.keys(vol).filter(k => Data.muscleMap[k]).sort((a, b) => vol[b] - vol[a]);
+    if (cardio && Data.muscleMap.cardio) keys.push('cardio');
+    return keys;
   }
 
   function renderSessionDetail() {
