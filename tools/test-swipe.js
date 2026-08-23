@@ -75,16 +75,16 @@ console.log('[1] 履歴のカレンダーを左右スワイプ');
   a.click('.tabbar button[data-tab="history"]');
   ok(!!a.$('[data-swipe="hist"]'), 'カレンダーがスワイプ対象になっている');
   const m0 = a.month();
-  a.swipe('[data-swipe="hist"]', -120, 5);
+  a.swipe('[data-swipe="hist"]', 120, 5);
   const m1 = a.month();
-  ok(m1 !== m0 && !!m1, '左に払うと次の月へ', m0 + ' -> ' + m1);
-  a.swipe('[data-swipe="hist"]', 120, -5);
-  ok(a.month() === m0, '右に払うと前の月へ戻る', a.month());
-  a.swipe('[data-swipe="hist"]', 120, -5);
-  a.swipe('[data-swipe="hist"]', 120, -5);
+  ok(m1 !== m0 && !!m1, '右に払うと次の月へ', m0 + ' -> ' + m1);
+  a.swipe('[data-swipe="hist"]', -120, -5);
+  ok(a.month() === m0, '左に払うと前の月へ戻る', a.month());
+  a.swipe('[data-swipe="hist"]', -120, -5);
+  a.swipe('[data-swipe="hist"]', -120, -5);
   const back2 = a.month();
-  a.swipe('[data-swipe="hist"]', -120, 0);
-  a.swipe('[data-swipe="hist"]', -120, 0);
+  a.swipe('[data-swipe="hist"]', 120, 0);
+  a.swipe('[data-swipe="hist"]', 120, 0);
   ok(a.month() === m0, '往復しても元の月に戻る', back2 + ' -> ' + a.month());
 }
 
@@ -97,16 +97,16 @@ console.log('[2] 体調の日付ナビを左右スワイプ');
   ok(!!a.$('[data-swipe="cond"]'), '日付ナビがスワイプ対象になっている');
   const d0 = a.condDate();
   ok(d0 === K(0), '最初は今日', d0);
-  a.swipe('[data-swipe="cond"]', 120, 0);
-  ok(a.condDate() === K(1), '右に払うと前の日へ', a.condDate());
-  a.swipe('[data-swipe="cond"]', 120, 0);
+  a.swipe('[data-swipe="cond"]', -120, 0);
+  ok(a.condDate() === K(1), '左に払うと前の日へ', a.condDate());
+  a.swipe('[data-swipe="cond"]', -120, 0);
   ok(a.condDate() === K(2), 'さらに前の日へ', a.condDate());
-  a.swipe('[data-swipe="cond"]', -120, 0);
-  ok(a.condDate() === K(1), '左に払うと次の日へ', a.condDate());
+  a.swipe('[data-swipe="cond"]', 120, 0);
+  ok(a.condDate() === K(1), '右に払うと次の日へ', a.condDate());
   // 未来には行かせない
-  a.swipe('[data-swipe="cond"]', -120, 0);
-  a.swipe('[data-swipe="cond"]', -120, 0);
-  a.swipe('[data-swipe="cond"]', -120, 0);
+  a.swipe('[data-swipe="cond"]', 120, 0);
+  a.swipe('[data-swipe="cond"]', 120, 0);
+  a.swipe('[data-swipe="cond"]', 120, 0);
   ok(a.condDate() === K(0), '今日より先へは進まない', a.condDate());
 }
 
@@ -135,7 +135,7 @@ console.log('[4] シートを開いている間');
   a.click('[data-act="open-weight"]') || a.click('[data-act="cond-weight"]') || a.click('[data-act="rm-calc"]');
   // 何かしらシートが開いた状態を作る（開けなければこのケースは飛ばす）
   if (a.$('.sheet-overlay')) {
-    a.swipe('[data-swipe="cond"]', 120, 0);
+    a.swipe('[data-swipe="cond"]', -120, 0);
     ok(a.condDate() === d0, 'シート表示中は裏の日付が動かない', a.condDate());
   } else {
     ok(true, '（シートを開けなかったため確認を省略）');
@@ -149,7 +149,7 @@ console.log('[5] 送れたときの触覚');
   const a = boot();
   a.click('.tabbar button[data-tab="history"]');
   const before = a.haptics.length;
-  a.swipe('[data-swipe="hist"]', -120, 0);
+  a.swipe('[data-swipe="hist"]', 120, 0);
   ok(a.haptics.length > before, '送れたときに軽い触覚を返す', a.haptics.join(','));
   ok(a.haptics[a.haptics.length - 1] === 'LIGHT', 'アラームではなく軽い一発', a.haptics.join(','));
   const n = a.haptics.length;
@@ -189,15 +189,15 @@ console.log('[7] 履歴の詳細を左右スワイプ');
   ok(!!a.$('[data-swipe="histdetail"]'), '詳細画面がスワイプ対象になっている');
   const title = () => (a.$('#view-history .head h1') || {}).textContent || '';
   ok(/sB/.test(title()), '真ん中の記録を開いている', title());
-  a.swipe('[data-swipe="histdetail"]', -120, 0);
-  ok(/sC/.test(title()), '左に払うと次(新しい方)の記録へ', title());
-  a.swipe('[data-swipe="histdetail"]', -120, 0);
+  a.swipe('[data-swipe="histdetail"]', 120, 0);
+  ok(/sC/.test(title()), '右に払うと次(新しい方)の記録へ', title());
+  a.swipe('[data-swipe="histdetail"]', 120, 0);
   ok(/sC/.test(title()), '最新で止まる', title());
   ok(/最新の記録/.test((a.$('.toast') || {}).textContent || ''), '最新であることを知らせる');
-  a.swipe('[data-swipe="histdetail"]', 120, 0);
-  a.swipe('[data-swipe="histdetail"]', 120, 0);
-  ok(/sA/.test(title()), '右に払って最初の記録まで戻れる', title());
-  a.swipe('[data-swipe="histdetail"]', 120, 0);
+  a.swipe('[data-swipe="histdetail"]', -120, 0);
+  a.swipe('[data-swipe="histdetail"]', -120, 0);
+  ok(/sA/.test(title()), '左に払って最初の記録まで戻れる', title());
+  a.swipe('[data-swipe="histdetail"]', -120, 0);
   ok(/sA/.test(title()), '最古で止まる', title());
 }
 
