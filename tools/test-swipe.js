@@ -245,6 +245,101 @@ console.log('[8] アクティブなタブの再タップでホームへ戻る');
   a.click('.tabbar button[data-tab="history"]');
   ok(!!a.$('.cal-head'), '別タブへの切り替えは普通に効く');
 }
+
+/* ---------- 9. 左端エッジスワイプで戻る ---------- */
+console.log('');
+console.log('[9] エッジスワイプ(iOSの戻る)');
+{
+  const a = boot();
+  const mk = (id, back) => ({ id, date: K(back), name: id, startedAt: K(back) + 'T19:00', finishedAt: K(back) + 'T20:00', done: true,
+    exercises: [{ id: 'we' + id, exerciseId: 'x', sets: [{ id: 's' + id, weight: 10, reps: 10, warmup: false, done: true }] }] });
+  a.w.localStorage.setItem('kintore:sessions', JSON.stringify([mk('sA', 2)]));
+  // 端から始まらない普通のタッチを作るヘルパ
+  const rawSwipe = (x0, y0, x1, y1) => {
+    const el = a.$('.view.active') || a.d.body;
+    const st = new a.w.Event('touchstart', { bubbles: true });
+    st.touches = [{ clientX: x0, clientY: y0, target: el }];
+    Object.defineProperty(st, 'target', { value: el });
+    el.dispatchEvent(st);
+    const en = new a.w.Event('touchend', { bubbles: true });
+    en.changedTouches = [{ clientX: x1, clientY: y1, target: el }];
+    Object.defineProperty(en, 'target', { value: el });
+    el.dispatchEvent(en);
+  };
+  // 履歴の詳細 → エッジスワイプ → カレンダーへ
+  a.click('.tabbar button[data-tab="history"]');
+  a.click('.cal-cell[data-date="' + K(2) + '"]');
+  ok(/sA/.test((a.$('#view-history .head h1') || {}).textContent || ''), '詳細を開いている');
+  rawSwipe(8, 400, 160, 405);
+  ok(!!a.$('.cal-head'), '左端から右に払うとカレンダーへ戻る');
+  // 端から始まらない同じ動きでは戻らない(誤爆防止)
+  a.click('.cal-cell[data-date="' + K(2) + '"]');
+  rawSwipe(200, 400, 352, 405);
+  ok(/sA/.test((a.$('#view-history .head h1') || {}).textContent || ''), '画面中央からのスワイプでは戻らない');
+  // シートが開いていれば、エッジスワイプはまずシートを閉じる
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="rm-calc"]');
+  ok(!!a.$('.sheet-overlay'), 'シートが開いている');
+  rawSwipe(8, 400, 160, 400);
+  ok(!a.$('.sheet-overlay'), 'エッジスワイプでシートが閉じる');
+}
+
+/* ---------- 10. シートを下に払って閉じる ---------- */
+console.log('');
+console.log('[10] シートの下払いディスミス');
+{
+  const a = boot();
+  const sheetSwipe = (dy, opts) => {
+    const el = (opts && opts.target) || a.$('.sheet');
+    if (!el) return false;
+    const st = new a.w.Event('touchstart', { bubbles: true });
+    st.touches = [{ clientX: 200, clientY: 300, target: el }];
+    Object.defineProperty(st, 'target', { value: el });
+    el.dispatchEvent(st);
+    const en = new a.w.Event('touchend', { bubbles: true });
+    en.changedTouches = [{ clientX: 205, clientY: 300 + dy, target: el }];
+    Object.defineProperty(en, 'target', { value: el });
+    el.dispatchEvent(en);
+    return true;
+  };
+  a.click('[data-act="rm-calc"]');
+  ok(!!a.$('.sheet-overlay'), 'シートが開く');
+  sheetSwipe(120);
+  ok(!a.$('.sheet-overlay'), '下に払うと閉じる');
+  // スクロール途中(上端でない)なら閉じない
+  a.click('[data-act="rm-calc"]');
+  a.$('.sheet').scrollTop = 150;
+  sheetSwipe(120);
+  ok(!!a.$('.sheet-overlay'), 'スクロール途中の下払いでは閉じない');
+  a.$('.sheet').scrollTop = 0;
+  // 入力欄の上から始まる下払いでは閉じない
+  const inp = a.$('.sheet input');
+  if (inp) {
+    sheetSwipe(120, { target: inp });
+    ok(!!a.$('.sheet-overlay'), '入力欄から始まる操作では閉じない');
+  } else { ok(true, '(入力欄が無いため省略)'); }
+  // 短い下移動では閉じない
+  sheetSwipe(40);
+  ok(!!a.$('.sheet-overlay'), '短い下移動では閉じない');
+  sheetSwipe(120);
+  ok(!a.$('.sheet-overlay'), '上端からの下払いで閉じる(後始末)');
+}
+
+/* ---------- 11. 選択操作のハプティクス ---------- */
+console.log('');
+console.log('[11] 選択の触覚');
+{
+  const a = boot();
+  a.click('.tabbar button[data-tab="graph"]');
+  const n0 = a.haptics.length;
+  a.click('[data-act="graph-view"][data-v="exercise"]');
+  ok(a.haptics.length > n0, 'セグメント切り替えで軽い触覚', a.haptics.slice(-1)[0]);
+  ok(a.haptics[a.haptics.length - 1] === 'LIGHT', '強いアラームではなくLIGHT');
+  const n1 = a.haptics.length;
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="start-empty"]');
+  ok(a.haptics.length === n1, '通常のボタンでは鳴らない');
+}
 console.log('');
 console.log('=== ' + pass + ' passed / ' + fail + ' failed ===');
 process.exit(fail ? 1 : 0);

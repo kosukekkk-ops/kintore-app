@@ -2373,7 +2373,13 @@
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act;
-    if (ACTIONS[act]) { e.preventDefault(); ACTIONS[act](el.dataset, el); }
+    if (ACTIONS[act]) {
+      e.preventDefault();
+      ACTIONS[act](el.dataset, el);
+      // 選択が切り替わる操作には軽い触覚を返す(iOSのセグメント/チェックの作法)。
+      // ボタン全部に付けると鳴りっぱなしになるので、選択系だけに限る。
+      if (el.matches('.seg button, .chip') || act === 'toggle-set' || act === 'supp-toggle') Native.tick();
+    }
   }
   function onInput(e) {
     const el = e.target.closest('[data-in]');
@@ -2668,6 +2674,7 @@
     if (state.tab === 'menu' && state.menu.screen === 'edit') { leaveTemplateEdit(); return true; }
     if (state.tab === 'condition' && state.cond.screen === 'supps') { state.cond.screen = 'list'; render(); return true; }
     if (state.tab === 'condition' && (state.cond.screen === 'sleep' || state.cond.screen === 'food')) { closeCondEdit(); return true; }
+    if (state.tab === 'settings' && state.settings.screen === 'exercises') { state.settings.screen = 'list'; render(); return true; }
     if (state.tab !== 'workout') { switchTab('workout'); return true; }
     return false; // ホーム最上位。ここでの戻るはアプリ側では扱わない
   }
@@ -2694,21 +2701,51 @@
     histdetail: (dir) => shiftSessionDetail(-dir),
     cond: (dir) => shiftCondDay(-dir)
   };
-  const swipe = { el: null, x: 0, y: 0, t: 0 };
+  const EDGE_W = 28;           // 画面左端この幅から始まる右スワイプは「戻る」(iOS標準)
+  let lastEdgeBackAt = 0;      // エッジスワイプとブラウザの戻るの二重発火よけ
+  const SHEET_DISMISS = 80;    // シートを閉じる下方向の距離
+  const swipe = { el: null, x: 0, y: 0, t: 0, edge: false, sheet: null, sheetTop: 0 };
   function onTouchStart(e) {
-    swipe.el = null;
+    swipe.el = null; swipe.edge = false; swipe.sheet = null;
     if (!e.touches || e.touches.length !== 1) return;         // 2本指は拡大縮小
-    if ($('.sheet-overlay')) return;                          // シート表示中は触らない
+    const tch = e.touches[0];
+    swipe.x = tch.clientX; swipe.y = tch.clientY; swipe.t = Date.now();
+    // 左端エッジ: 何より優先(iOSの戻るは日付送りより強い)
+    swipe.edge = tch.clientX <= EDGE_W;
+    // シート内: 下に払って閉じる候補。入力部品の上から始まる操作は除外する
+    const sheetEl = e.target.closest('.sheet');
+    if (sheetEl && !e.target.closest('input, textarea, select')) {
+      swipe.sheet = sheetEl;
+      swipe.sheetTop = sheetEl.scrollTop;                     // 上端にいた時だけ閉じる
+    }
+    if ($('.sheet-overlay')) return;                          // シート表示中は日付送りをしない
     const el = e.target.closest('[data-swipe]');
-    if (!el) return;
-    swipe.el = el; swipe.x = e.touches[0].clientX; swipe.y = e.touches[0].clientY; swipe.t = Date.now();
+    if (el) swipe.el = el;
   }
   function onTouchEnd(e) {
-    const el = swipe.el; swipe.el = null;
-    if (!el || !e.changedTouches || !e.changedTouches[0]) return;
+    const { el, edge, sheet, sheetTop } = swipe;
+    swipe.el = null; swipe.edge = false; swipe.sheet = null;
+    if (!e.changedTouches || !e.changedTouches[0]) return;
+    if (Date.now() - swipe.t > SWIPE_MAX_MS) return;
     const dx = e.changedTouches[0].clientX - swipe.x;
     const dy = e.changedTouches[0].clientY - swipe.y;
-    if (Date.now() - swipe.t > SWIPE_MAX_MS) return;
+    // 1) エッジスワイプ = 戻る。シートが開いていればまずシートが閉じる(goBackOneの先頭)
+    if (edge && dx >= SWIPE_MIN && Math.abs(dx) >= Math.abs(dy) * SWIPE_RATIO) {
+      // 環境によってはブラウザ自身の戻るジェスチャも同時に発火し(popstate)、
+      // 2段戻ってしまう。直後のpopstateは自前で戻った分として読み飛ばす。
+      lastEdgeBackAt = Date.now();
+      if (goBackOne()) { Native.tick(); pushBackTrap(); }
+      return;
+    }
+    // 2) シートを下に払って閉じる。中身をスクロールして戻る途中の指と混同しないよう、
+    //    触り始めに上端(scrollTop=0)だった時だけ成立させる
+    if (sheet && sheetTop <= 0 && dy >= SHEET_DISMISS && Math.abs(dy) >= Math.abs(dx) * SWIPE_RATIO) {
+      const ov = sheet.closest('.sheet-overlay');
+      if (ov) { removeSheet(ov); Native.tick(); }
+      return;
+    }
+    // 3) 日付送り
+    if (!el) return;
     if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
     const fn = SWIPE_ACT[el.dataset.swipe];
     if (!fn) return;
@@ -2792,7 +2829,10 @@
     window.addEventListener('focus', syncTimerFromClock);
     // 戻る操作を1回分ぶん先に確保し、消費したらまた積み直す
     pushBackTrap();
-    window.addEventListener('popstate', () => { if (goBackOne()) pushBackTrap(); });
+    window.addEventListener('popstate', () => {
+      if (Date.now() - lastEdgeBackAt < 400) { pushBackTrap(); return; }   // エッジスワイプ由来の分
+      if (goBackOne()) pushBackTrap();
+    });
     render();
     const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
     if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !isLocal) {
