@@ -2715,6 +2715,26 @@
     fn(dx);
   }
 
+  /* ---- 今いるタブをもう一度タップ = そのタブの最初の画面へ戻る ----
+   * iOS標準の作法。深い画面(履歴の詳細・記録画面・テンプレ編集・過去日の体調)から
+   * ワンタップで戻れるようにする。壊してはいけないものは既存の戻り処理に任せる:
+   * 記録中は closeSession が保存してから戻り、テンプレ編集は未保存の確認を挟む。 */
+  function popToRoot(tab) {
+    if (tab === 'workout') {
+      if (cur || state.wo.screen !== 'home') { closeSession(); window.scrollTo(0, 0); return; }
+    } else if (tab === 'history') {
+      state.hist.screen = 'list';
+    } else if (tab === 'menu') {
+      if (state.menu.screen === 'edit') { leaveTemplateEdit(); window.scrollTo(0, 0); return; }
+    } else if (tab === 'graph') {
+      state.graph.view = 'balance';
+    } else if (tab === 'condition') {
+      state.cond.screen = 'list'; state.cond.viewDate = null; state.cond.backTo = null;
+    }
+    render();
+    window.scrollTo(0, 0);   // 既に最初の画面でも先頭へスクロール(これもiOSの作法)
+  }
+
   function boot() {
     if (booted) return;
     booted = true;
@@ -2737,7 +2757,10 @@
     document.body.addEventListener('input', onInput);
     document.body.addEventListener('touchstart', onTouchStart, { passive: true });
     document.body.addEventListener('touchend', onTouchEnd, { passive: true });
-    $$('.tabbar button').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    $$('.tabbar button').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.tab === state.tab) popToRoot(b.dataset.tab);
+      else switchTab(b.dataset.tab);
+    }));
     // ソフトキーボード対策(iOS):
     // ボトムシートは画面下端に固定のため、キーボードが出ると入力欄が隠れて
     // タップしてもカーソルが見えない。キーボードの高さを --kb に反映して

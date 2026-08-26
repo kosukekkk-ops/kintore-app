@@ -201,6 +201,50 @@ console.log('[7] 履歴の詳細を左右スワイプ');
   ok(/sA/.test(title()), '最古で止まる', title());
 }
 
+
+/* ---------- 8. 同じタブをもう一度タップで最初の画面へ ---------- */
+console.log('');
+console.log('[8] アクティブなタブの再タップでホームへ戻る');
+{
+  const a = boot();
+  const mk = (id, back) => ({ id, date: K(back), name: id, startedAt: K(back) + 'T19:00', finishedAt: K(back) + 'T20:00', done: true,
+    exercises: [{ id: 'we' + id, exerciseId: 'x', sets: [{ id: 's' + id, weight: 10, reps: 10, warmup: false, done: true }] }] });
+  a.w.localStorage.setItem('kintore:sessions', JSON.stringify([mk('sA', 2)]));
+  // 履歴: 詳細 → タブ再タップ → カレンダーへ
+  a.click('.tabbar button[data-tab="history"]');
+  a.click('.cal-cell[data-date="' + K(2) + '"]');
+  ok(/sA/.test((a.$('#view-history .head h1') || {}).textContent || ''), '詳細を開いている');
+  a.click('.tabbar button[data-tab="history"]');
+  ok(!!a.$('.cal-head'), '再タップでカレンダーに戻る');
+  a.click('.tabbar button[data-tab="history"]');
+  ok(!!a.$('.cal-head'), '既にホームでも壊れない');
+  // 体調: 過去日 → タブ再タップ → 今日へ
+  a.click('.tabbar button[data-tab="condition"]');
+  a.swipe('[data-swipe="cond"]', 120, 0);
+  ok(a.condDate() === K(1), '前の日を見ている', a.condDate());
+  a.click('.tabbar button[data-tab="condition"]');
+  ok(a.condDate() === K(0), '再タップで今日に戻る', a.condDate());
+  // グラフ: 種目別 → タブ再タップ → バランスへ
+  a.click('.tabbar button[data-tab="graph"]');
+  a.click('[data-act="graph-view"][data-v="exercise"]');
+  a.click('.tabbar button[data-tab="graph"]');
+  ok(/今週の記録状況|バランス/.test(a.$('#view-graph').textContent), '再タップでバランスに戻る');
+  // 記録: 記録画面 → タブ再タップ → ホームへ(記録は消えない)
+  a.click('.tabbar button[data-tab="workout"]');
+  a.click('[data-act="start-empty"]');
+  ok(!!a.$('[data-act="pick-ex"]'), '記録画面にいる');
+  a.click('.tabbar button[data-tab="workout"]');
+  ok(!a.$('[data-act="pick-ex"]'), '再タップでホームに戻る');
+  // メニュー: 編集(未入力) → タブ再タップ → 一覧へ
+  a.click('.tabbar button[data-tab="menu"]');
+  a.click('[data-act="new-template"]');
+  ok(!!a.$('[data-in="tpl-name"]'), 'テンプレ編集にいる');
+  a.click('.tabbar button[data-tab="menu"]');
+  ok(!a.$('[data-in="tpl-name"]'), '再タップで一覧に戻る(未入力なら確認なし)');
+  // 別タブへの通常の切り替えは従来どおり
+  a.click('.tabbar button[data-tab="history"]');
+  ok(!!a.$('.cal-head'), '別タブへの切り替えは普通に効く');
+}
 console.log('');
 console.log('=== ' + pass + ' passed / ' + fail + ' failed ===');
 process.exit(fail ? 1 : 0);
