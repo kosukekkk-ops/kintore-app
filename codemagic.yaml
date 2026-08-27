@@ -472,11 +472,28 @@ workflows:
                              'violenceRealisticProlongedGraphicOrSadistic']
               ar_attrs = {f: 'NONE' for f in NONE_FIELDS}
               ar_attrs.update({'gambling': False, 'unrestrictedWebAccess': False, 'lootBox': False})
-              # 2026年にAPIへ追加された必須属性。年齢確認(age assurance)機能は使っていない。
-              # 未指定だと 409 ENTITY_ERROR.ATTRIBUTE.REQUIRED で年齢制限の設定だけ失敗する。
+              # Appleは年齢制限の必須属性を追々増やす(2026年: ageAssurance, userGeneratedContent など)。
+              # 名前を推測せず、409 ATTRIBUTE.REQUIRED が返した属性名を False で足して再試行する。
+              # 真偽値でない属性だった場合は 'NONE' に切り替えてもう一度だけ試す。
               ar_attrs['ageAssurance'] = False
-              s, d = api('PATCH', f'/v1/ageRatingDeclarations/{ar_id}',
-                         {'data': {'type': 'ageRatingDeclarations', 'id': ar_id, 'attributes': ar_attrs}})
+              ar_attrs['userGeneratedContent'] = False
+              import re as _re
+              for _ in range(12):
+                  s, d = api('PATCH', f'/v1/ageRatingDeclarations/{ar_id}',
+                             {'data': {'type': 'ageRatingDeclarations', 'id': ar_id, 'attributes': ar_attrs}})
+                  if s != 409:
+                      break
+                  detail = json.dumps(d)
+                  m = _re.search(r"attribute '([A-Za-z]+)'", detail)
+                  if not m:
+                      break
+                  name = m.group(1)
+                  if ar_attrs.get(name) is False:
+                      ar_attrs[name] = 'NONE'      # 真偽値でなかった → 段階値の「なし」を試す
+                      print('age rating: retry', name, "as 'NONE'", flush=True)
+                  else:
+                      ar_attrs[name] = False
+                      print('age rating: adding required attr', name, '= False', flush=True)
               print('age rating:', s, json.dumps(d)[:300], flush=True)
 
           # 6) 著作権表記
