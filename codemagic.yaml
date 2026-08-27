@@ -798,9 +798,11 @@ workflows:
               'relationships': {
                   'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sid}},
                   'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
-          print('add version item:', s, json.dumps(d)[:300], flush=True)
+          print('add version item:', s, flush=True)
           if s not in (200, 201):
-              raise SystemExit('バージョンを提出物に追加できなかった。上のエラーを確認(プライバシー/カテゴリ等の未設定が典型)')
+              # associatedErrors に「何が足りないか」の確定リストが入っているので全文出す
+              print(json.dumps(d, ensure_ascii=False, indent=1)[:4000], flush=True)
+              raise SystemExit('バージョンを提出物に追加できなかった。上の associated errors が不足項目の一覧')
           # IAPはreviewSubmissionItemsから廃止された(2026)。READY_TO_SUBMITのIAPは
           # バージョン提出に自動で同梱されるので、状態の確認だけ行う。
           if IAP:
