@@ -472,6 +472,9 @@ workflows:
                              'violenceRealisticProlongedGraphicOrSadistic']
               ar_attrs = {f: 'NONE' for f in NONE_FIELDS}
               ar_attrs.update({'gambling': False, 'unrestrictedWebAccess': False, 'lootBox': False})
+              # 2026年にAPIへ追加された必須属性。年齢確認(age assurance)機能は使っていない。
+              # 未指定だと 409 ENTITY_ERROR.ATTRIBUTE.REQUIRED で年齢制限の設定だけ失敗する。
+              ar_attrs['ageAssurance'] = False
               s, d = api('PATCH', f'/v1/ageRatingDeclarations/{ar_id}',
                          {'data': {'type': 'ageRatingDeclarations', 'id': ar_id, 'attributes': ar_attrs}})
               print('age rating:', s, json.dumps(d)[:300], flush=True)
