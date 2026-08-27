@@ -502,6 +502,36 @@ workflows:
                       print('age rating: adding required attr', name, '= False', flush=True)
               print('age rating:', s, json.dumps(d)[:300], flush=True)
 
+          # 5.5) プライマリカテゴリ: ヘルスケア/フィットネス。
+          #      未設定だと審査提出物にバージョンを追加できない(ENTITY_STATE_INVALID)。
+          s, d = api('GET', f'/v1/apps/{APP}/appInfos?limit=2')
+          info_id = d['data'][0]['id']
+          s, d = api('PATCH', f'/v1/appInfos/{info_id}', {'data': {
+              'type': 'appInfos', 'id': info_id,
+              'relationships': {'primaryCategory': {'data': {'type': 'appCategories', 'id': 'HEALTH_AND_FITNESS'}}}}})
+          print('primary category:', s, json.dumps(d)[:200], flush=True)
+
+          # 5.6) Appプライバシー「データ収集なし」を宣言して公開する。
+          #      未公開だとこれも提出をブロックする。fastlaneと同じエンドポイントを使う。
+          s, d = api('GET', f'/v1/apps/{APP}/dataUsagePublishState')
+          pub = d.get('data') or {}
+          print('privacy publish state:', s, json.dumps(pub.get('attributes', {}))[:120], flush=True)
+          if s == 200 and pub and not (pub.get('attributes') or {}).get('published'):
+              # 既存の宣言を消してから「収集なし」を1件だけ置く(冪等)
+              s, d = api('GET', f'/v1/apps/{APP}/dataUsages?limit=200')
+              for u in (d.get('data') or []):
+                  api('DELETE', f"/v1/appDataUsages/{u['id']}")
+              s, d = api('POST', '/v1/appDataUsages', {'data': {
+                  'type': 'appDataUsages',
+                  'relationships': {
+                      'app': {'data': {'type': 'apps', 'id': APP}},
+                      'dataProtection': {'data': {'type': 'appDataUsageDataProtections', 'id': 'DATA_NOT_COLLECTED'}}}}})
+              print('privacy declare(not collected):', s, json.dumps(d)[:200], flush=True)
+              s, d = api('PATCH', f"/v1/appDataUsagePublishStates/{pub['id']}", {'data': {
+                  'type': 'appDataUsagePublishStates', 'id': pub['id'],
+                  'attributes': {'published': True}}})
+              print('privacy publish:', s, json.dumps(d)[:200], flush=True)
+
           # 6) 著作権表記
           s, d = api('PATCH', f'/v1/appStoreVersions/{vid}', {'data': {
               'type': 'appStoreVersions', 'id': vid,
@@ -768,14 +798,17 @@ workflows:
               'relationships': {
                   'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sid}},
                   'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': vid}}}}})
-          print('add version item:', s, json.dumps(d)[:200], flush=True)
+          print('add version item:', s, json.dumps(d)[:300], flush=True)
+          if s not in (200, 201):
+              raise SystemExit('バージョンを提出物に追加できなかった。上のエラーを確認(プライバシー/カテゴリ等の未設定が典型)')
+          # IAPはreviewSubmissionItemsから廃止された(2026)。READY_TO_SUBMITのIAPは
+          # バージョン提出に自動で同梱されるので、状態の確認だけ行う。
           if IAP:
-              s, d = api('POST', '/v1/reviewSubmissionItems', {'data': {
-                  'type': 'reviewSubmissionItems',
-                  'relationships': {
-                      'reviewSubmission': {'data': {'type': 'reviewSubmissions', 'id': sid}},
-                      'inAppPurchaseV2': {'data': {'type': 'inAppPurchases', 'id': IAP}}}}})
-              print('add IAP item:', s, json.dumps(d)[:300], flush=True)
+              s, d = api('GET', f'/v2/inAppPurchases/{IAP}')
+              iap_state = d.get('data', {}).get('attributes', {}).get('state')
+              print('IAP state (auto-included when READY_TO_SUBMIT):', iap_state, flush=True)
+              if iap_state not in ('READY_TO_SUBMIT', 'WAITING_FOR_REVIEW', 'IN_REVIEW', 'APPROVED'):
+                  raise SystemExit('IAPが提出可能な状態ではない: ' + str(iap_state))
 
           s, d = api('GET', f'/v1/reviewSubmissions/{sid}/items')
           print('items:', json.dumps(d.get('data', []))[:400], flush=True)
