@@ -477,6 +477,12 @@ workflows:
               # 真偽値でない属性だった場合は 'NONE' に切り替えてもう一度だけ試す。
               ar_attrs['ageAssurance'] = False
               ar_attrs['userGeneratedContent'] = False
+              # トレログは筋トレ・睡眠・食事を扱う健康系アプリなので、ここだけは True が正直な申告。
+              # (自己修復ループが False で埋めると虚偽メタデータになる)
+              ar_attrs['healthOrWellnessTopics'] = True
+              ar_attrs['messagingAndChat'] = False
+              ar_attrs['advertising'] = False
+              ar_attrs['parentalControls'] = False
               import re as _re
               for _ in range(12):
                   s, d = api('PATCH', f'/v1/ageRatingDeclarations/{ar_id}',
